@@ -1,15 +1,18 @@
-
-
-
 class NWR:
     def __init__(self, predictor, gamma=.60):
         self.predictor = predictor
         self.gamma = gamma
 
     def atomic_concept(self, concept_str):
+        """ ? type C """
+        # (1) Compute scores for all possible triples (? type C)head entities.
         scores_for_all = self.predictor.predict(relations=['<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>'],
                                                 tail_entities=[concept_str])
+        # (2)
         return {self.predictor.idx_to_entity[index] for index, flag in enumerate(scores_for_all >= self.gamma) if flag}
+
+    def negated_atomic_concept(self, concept_str):
+        return all_named_indv - self.atomic_concept(concept_str=concept_str)
 
     def conjunction(self, concept_str: str, other: str) -> Set[str]:
         """ 	Conjunction   ⊓           & $C\sqcap D$    & $C^\mathcal{I}\cap D^\mathcal{I} """
@@ -18,9 +21,6 @@ class NWR:
     def disjunction(self, concept_str: str, other: str) -> Set[str]:
         """ ⊔ """
         return self.atomic_concept(concept_str).union(self.atomic_concept(other))
-
-    def negated_atomic_concept(self, concept_str):
-        return all_named_indv - self.atomic_concept(concept_str=concept_str)
 
     def existential_restriction(self, role: str, filler_concept: str=None, filler_indv:Set[str]=None):
         """ \exists r.C  { x \mid \exists y. (x,y) \in r^I \land y \in C^I } """

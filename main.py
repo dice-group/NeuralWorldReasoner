@@ -1,9 +1,12 @@
 from reasoners import NWR, CWR, SPARQLCWR
+from util import jaccard
 
 from dicee import KGE
 import pandas as pd
 import torch
 from typing import Set
+
+
 
 # (1) Load the model
 pretrained_model = KGE('Experiments/2023-05-03 12:14:26.873840')
@@ -108,9 +111,8 @@ all_named_indv = set(kg[(kg['relation'] == '<http://www.w3.org/1999/02/22-rdf-sy
 
 nwr = NWR(predictor=pretrained_model, gamma=0.7)
 cwr = CWR(database=kg)
+# SPARQLCWR()
 
-def jaccard(y: Set[str], yhat: Set[str]):
-    return len(y.intersection(yhat)) / len(y.union(yhat))
 
 print(jaccard(y=cwr.universal_restriction(role='<http://www.benchmark.org/family#married>',
                                             filler_concept='<http://www.benchmark.org/family#Female>'),
