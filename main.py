@@ -1,11 +1,11 @@
-from reasoners import NWR, CWR, SPARQLCWR
-from util import jaccard_similarity
+from reasoners import NWR, CWR, SPARQLCWR, NC, AbstractReasoner, AbstractDLConcept, Restriction
+from util import jaccard_similarity, compute_prediction, evaluate_results
 import time
 from dicee import KGE
 import pandas as pd
 import torch
 
-pd.set_option("display.precision", 3)
+pd.set_option("display.precision", 4)
 pd.pandas.set_option('display.max_columns', None)
 
 # (1) Load the model
@@ -24,62 +24,53 @@ all_named_individuals = set(kg[(kg['relation'] == '<http://www.w3.org/1999/02/22
 all_named_concepts = set(kg[(kg['relation'] == '<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>') & (
         kg['object'] == '<http://www.w3.org/2002/07/owl#Class>')]['subject'].tolist())
 
+assert len(all_named_concepts) == len(list(all_named_concepts))
+# Order Matters at testing time.
+all_named_concepts = [NC(i) for i in all_named_concepts]
+
 swr = SPARQLCWR(url='http://localhost:3030/family/sparql', name='Fuseki')
+
+relations=swr.query("SELECT DISTINCT ?var WHERE { ?subject ?p <http://www.w3.org/2002/07/owl#NamedIndividual> .?subject ?var ?object .}")
+
 neural_kb = NWR(predictor=pretrained_model, gamma=0.25, all_named_individuals=all_named_individuals)
 cwr = CWR(database=kg, all_named_individuals=all_named_individuals)
+# Create Negations
+neg_named_concepts = [i.neg() for i in all_named_concepts]
+
+existential_res=[]
+universal_res=[]
+for role_iri in relations:
+    for filler in all_named_concepts:
+        existential_res.append(Restriction(opt='∃', role=role_iri, filler=filler))
+        universal_res.append(Restriction(opt='∀', role=role_iri, filler=filler))
+# Un
+df= evaluate_results(true_results=compute_prediction(universal_res, predictor=cwr),
+                        predictions=compute_prediction(universal_res, predictor=swr))
 
 
-def compute_similarity(concepts: set[str], retriever: object, pred_retriever: object, f=jaccard_similarity,type_="atomic_concept"):
-    """
+assert evaluate_results(true_results=compute_prediction(existential_res, predictor=cwr),
+                        predictions=compute_prediction(existential_res, predictor=swr))['Similarity'].mean() == 1.0
 
-    :param type_:
-    :param pred_retriever:
-    :param retriever:
-    :param concepts: a set of concepts
-    :param f: a similarity function
-    :return: Float
-    """
-    results = []
-    avg_sims = 0
-    rt_retriever = 0
-    rt_pred_retriever = 0
-    for c in concepts:
-        start_time = time.time()
-        y = getattr(retriever, type_)(concept=c)
-        rt_retriever += time.time() - start_time
-
-        start_time = time.time()
-        yhat = getattr(pred_retriever, type_)(concept=c)
-        rt_pred_retriever += time.time() - start_time
-
-        sim = f(y=y, yhat=yhat)
-        #print(
-        #    f"Retrieval Task:{i}\tSim:{sim}\t|y|={len(y)}\t|yhat|={len(yhat)}\tRT {retriever.name}:{rt_retriever:.3f}\t RT {pred_retriever.name}:{rt_pred_retriever:.3f}")
-
-
-        plain_concept=c.split('#')[-1][:-1]
-
-        if type_=='negated_atomic_concept':
-            plain_concept="¬"+plain_concept
-        results.append({'Concept': plain_concept, 'ConceptSize': len(y), 'Jaccard': sim,
-                        f'{retriever.name}': rt_retriever, f'{pred_retriever.name}': rt_pred_retriever})
-        avg_sims += sim
-    avg_sims /= len(concepts)
-
-    df=pd.DataFrame(results)
-    return df
-    #print(df.to_latex(index=False,float_format="%.3f"))
-    ## print(df['Jacc_Sim'].mean())
-
-assert compute_similarity(all_named_concepts, type_="atomic_concept", retriever=swr, pred_retriever=cwr)['Jaccard'].mean()==compute_similarity(all_named_concepts, type_="negated_atomic_concept", retriever=swr, pred_retriever=cwr)['Jaccard'].mean()==1.0
-
-compute_similarity(all_named_concepts, type_="atomic_concept", retriever=swr, pred_retriever=neural_kb)
-compute_similarity(all_named_concepts, type_="negated_atomic_concept", retriever=swr, pred_retriever=neural_kb)
 exit(1)
-print(jaccard_similarity(y=cwr.universal_restriction(role='<http://www.benchmark.org/family#married>',
-                                                     filler_concept='<http://www.benchmark.org/family#Female>'),
-                         yhat=nwr.universal_restriction(role='<http://www.benchmark.org/family#married>',
-                                                        filler_concept='<http://www.benchmark.org/family#Female>')))
+# Evaluate on all NC.
+assert evaluate_results(true_results=compute_prediction(all_named_concepts, predictor=cwr),
+                        predictions=compute_prediction(all_named_concepts, predictor=swr))['Similarity'].mean() == 1.0
+assert evaluate_results(true_results=compute_prediction(neg_named_concepts, predictor=cwr),
+                        predictions=compute_prediction(neg_named_concepts, predictor=swr))['Similarity'].mean() == 1.0
+# Create Unions and Intersections
+unions = []
+intersections = []
+for i in all_named_concepts:
+    for j in all_named_concepts:
+        unions.append(i.union(j))
+        intersections.append(i.intersection(j))
+#
+
+assert evaluate_results(true_results=compute_prediction(intersections, predictor=cwr),
+                        predictions=compute_prediction(intersections, predictor=swr))['Similarity'].mean() == 1.0
+assert evaluate_results(true_results=compute_prediction(unions, predictor=cwr),
+                        predictions=compute_prediction(unions, predictor=swr))['Similarity'].mean() == 1.0
+
 
 print(jaccard_similarity(y=cwr.existential_restriction(role='<http://www.benchmark.org/family#married>',
                                                        filler_concept='<http://www.benchmark.org/family#Female>'),
