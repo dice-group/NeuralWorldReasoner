@@ -1,18 +1,21 @@
 from typing import Set
 import pandas as pd
 import time
-def jaccard_similarity(y: Set[str], yhat: Set[str])->float:
+
+
+def jaccard_similarity(y: Set[str], yhat: Set[str]) -> float:
     """
     Compute Jaccard Similarity
     :param y: A set of URIs
     :param yhat: A set of URIs
     :return:
     """
-    if len(yhat)==len(y)==0:
+    if len(yhat) == len(y) == 0:
         return 1.0
-    if len(yhat) ==0 or len(y)==0:
+    if len(yhat) == 0 or len(y) == 0:
         return 0.0
     return len(y.intersection(yhat)) / len(y.union(yhat))
+
 
 def compute_prediction(concepts: list, predictor) -> list[dict]:
     res = []
@@ -24,13 +27,15 @@ def compute_prediction(concepts: list, predictor) -> list[dict]:
     return res
 
 
-def evaluate_results(true_results: list[dict], predictions: list[dict]) -> pd.DataFrame:
+def evaluate_results(true_results: list[dict], predictions: list[dict],
+                     ignore_empty_concept: bool = True) -> pd.DataFrame:
     results = []
     for y_results, yhat_results in zip(true_results, predictions):
         assert y_results['Concept'] == yhat_results['Concept']
         concept = y_results['Concept']
         concept_size = len(y_results['Individuals'])
-
+        if concept_size == 0 and ignore_empty_concept:
+            continue
         y = y_results['Individuals']
         yhat = yhat_results['Individuals']
         sim = jaccard_similarity(y=y, yhat=yhat)
@@ -39,4 +44,3 @@ def evaluate_results(true_results: list[dict], predictions: list[dict]) -> pd.Da
                         f'RT{yhat_results["Name"]}': yhat_results['RT']})
 
     return pd.DataFrame(results)
-

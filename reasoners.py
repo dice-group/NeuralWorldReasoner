@@ -19,7 +19,7 @@ class Restriction(AbstractDLConcept):
         self.opt = opt
         self.role_iri = role
         self.filler = filler
-        self.str = opt + role.split('#')[-1][:-1] + '.' + filler.str
+        self.str = opt + ' ' + role.split('#')[-1][:-1] + '.' + filler.str
         self.sparql = converter.as_query("?var", parser.parse_expression(self.str), False)
 
 
@@ -51,6 +51,7 @@ class NC(AbstractDLConcept):
     def __init__(self, iri):
         super(NC, self)
         self.iri = iri
+        assert self.iri[0] == '<' and self.iri[-1] == '>'
         self.str = self.iri.split('#')[-1][:-1]
         self.sparql = converter.as_query("?var", parser.parse_expression(self.str), False)
 
@@ -67,6 +68,7 @@ class NC(AbstractDLConcept):
 class NNC(AbstractDLConcept):
     def __init__(self, iri: str):
         super(NNC, self)
+        assert iri[0] == '<' and iri[-1] == '>'
         self.neg_iri = iri
         self.str = "¬" + iri.split('#')[-1][:-1]
         self.sparql = converter.as_query("?var", parser.parse_expression(self.str), False)
@@ -105,6 +107,18 @@ class AbstractReasoner(ABC):
     def negated_atomic_concept(self, concept: NNC) -> Set[str]:
         raise NotImplementedError()
 
+    @abstractmethod
+    def restriction(self, concept: Restriction) -> Set[str]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def conjunction(self, concept: NC) -> Set[str]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def disjunction(self, concept: NC) -> Set[str]:
+        raise NotImplementedError()
+
 
 class NWR(AbstractReasoner):
     def __init__(self, predictor, gamma=.60, all_named_individuals: Set[str] = None):
@@ -126,18 +140,25 @@ class NWR(AbstractReasoner):
         # (3) Remove non entity predictions.
         return {i for i in raw_results if i in self.all_named_individuals}
 
-    def negated_atomic_concept(self, concept: NNC):
+    def negated_atomic_concept(self, concept: NNC) -> Set[str]:
         assert isinstance(concept, NNC)
+        return self.all_named_individuals - self.predict(concept.neg())
 
-        return self.all_named_individuals - self.atomic_concept(concept=concept.base)
-
-    def conjunction(self, concept_str: str, other: str) -> Set[str]:
+    def conjunction(self, concept: ConjunctionDLConcept) -> Set[str]:
         """ 	Conjunction   ⊓           & $C\sqcap D$    & $C^\mathcal{I}\cap D^\mathcal{I} """
-        return self.atomic_concept(concept_str).intersection(self.atomic_concept(other))
+        return self.predict(concept=concept.left).intersection(self.predict(concept=concept.left))
 
-    def disjunction(self, concept_str: str, other: str) -> Set[str]:
+    def disjunction(self, concept: DisjunctionDLConcept) -> Set[str]:
         """ ⊔ """
-        return self.atomic_concept(concept_str).union(self.atomic_concept(other))
+        return self.predict(concept=concept.left).union(self.predict(concept=concept.left))
+
+    def restriction(self, concept: Restriction) -> Set[str]:
+        if concept.opt == '∃':
+            return self.existential_restriction(role=concept.role_iri, filler_concept=concept.filler)
+        elif concept.opt == '∀':
+            return self.universal_restriction(role=concept.role_iri, filler_concept=concept.filler)
+        else:
+            raise ValueError(concept.str)
 
     def existential_restriction(self, role: str, filler_concept: str = None, filler_indv: Set[str] = None):
         """ \exists r.C  { x \mid \exists y. (x,y) \in r^I \land y \in C^I } """
@@ -160,23 +181,32 @@ class NWR(AbstractReasoner):
                 continue
         return {self.predictor.idx_to_entity[i] for i in results}
 
-    def universal_restriction(self, role: str, filler_concept: str):
-        """ \forall r.C   &
+    def universal_restriction(self, role: str, filler_concept: AbstractDLConcept):
 
-        (1) \forall hasChild.Top
-        \neg Top => \bot
+        results = set()
+        indv_fillers = self.predict(filler_concept)
+        # We should only consider the domain of the interpretation of the role.
+        for i in self.all_named_individuals:
 
-        \forall hasChild.Top
-        { x | \forall y. (x,y) \in r^I \implies y \in C^I \}  """
-        # RECALL : https://github.com/SmartDataAnalytics/DL-Learner/blob/a7cd4441e52b6e54aefdea33a4914e9132ebfd97/components-core/src/main/java/org/dllearner/reasoning/ClosedWorldReasoner.java#L1058
-        # \forall r.\bot     \equiv   \neg \exists r.\top
+            # {SELECT ?var
+            #   (count(?s2) as ?cnt2)
+            #   WHERE { ?var r ?s2 }
+            #   GROUP By ?var}
+            scores_for_all = self.predictor.predict(head_entities=[i], relations=[role]).flatten()
+            raw_results = {self.predictor.idx_to_entity[index] for index, flag in
+                           enumerate(scores_for_all >= self.gamma) if flag}
+            cnt2 = {i for i in raw_results if i in self.all_named_individuals}
 
-        # (1) Compute individuals belonging to the negation of the filler .
-        individuals_neg_filler_concept = self.negated_atomic_concept(concept=filler_concept)
-        # (2) Compute individuals beloning to the \exist r. neg C
-        # (3) Domain - (2)
-        return self.all_named_individuals - self.existential_restriction(role=role,
-                                                                         filler_indv=individuals_neg_filler_concept)
+            # {SELECT ?var
+            #   (count (?s1) as ?cn1)
+            #   WHERE { ?var r ?s1 .
+            #           \tau(C,?s1) .}
+            #   GROUP BY ?var }
+            cnt1 = cnt2.intersection(indv_fillers)
+            # jaccard
+            if len(cnt1.intersection(cnt2))/(len(cnt1.union(cnt2)))>=self.gamma:
+                results.add(i)
+        return results
 
 
 class CWR(AbstractReasoner):
@@ -199,14 +229,6 @@ class CWR(AbstractReasoner):
         assert isinstance(concept, NNC)
         return self.all_named_individuals - self.atomic_concept(concept=concept.neg())
 
-    def restriction(self, concept)->Set[str]:
-        if concept.opt == '∃':
-            return self.existential_restriction(role=concept.role_iri, filler_concept=concept.filler)
-        elif concept.opt == '∀':
-            return self.universal_restriction(role=concept.role_iri, filler_concept=concept.filler)
-        else:
-            raise ValueError(concept)
-
     def conjunction(self, concept: ConjunctionDLConcept) -> Set[str]:
         """  Conjunction   (⊓) : C ⊓ D  : C^I ⊓ D^I """
         assert isinstance(concept, ConjunctionDLConcept)
@@ -217,13 +239,21 @@ class CWR(AbstractReasoner):
         assert isinstance(concept, DisjunctionDLConcept)
         return self.atomic_concept(concept.left).union(self.atomic_concept(concept.right))
 
-    def existential_restriction(self, role: str, filler_concept: str = None, filler_indv: Set[str] = None):
+    def restriction(self, concept: Restriction) -> Set[str]:
+        if concept.opt == '∃':
+            return self.existential_restriction(role=concept.role_iri, filler_concept=concept.filler)
+        elif concept.opt == '∀':
+            return self.universal_restriction(role=concept.role_iri, filler_concept=concept.filler)
+        else:
+            raise ValueError(concept.str)
+
+    def existential_restriction(self, role: str, filler_concept, filler_indv: Set[str] = None):
         """ \exists r.C  { x \mid \exists y. (x,y) \in r^I \land y \in C^I } """
         # (1) All triples with a given role.
         triples_with_role = self.database[self.database['relation'] == role].to_records(index=False)
         # (2) All individuals having type C.
         if filler_concept:
-            filler_individuals = self.atomic_concept(concept=filler_concept)
+            filler_individuals = self.predict(concept=filler_concept)
         elif filler_indv:
             filler_individuals = filler_indv
         else:
@@ -234,16 +264,34 @@ class CWR(AbstractReasoner):
     def universal_restriction(self, role: str, filler_concept: AbstractDLConcept):
         """ \forall r.C   &
         { x | \forall y. (x,y) \in r^I \implies y \in C^I \}  """
-        # RECALL : https://github.com/SmartDataAnalytics/DL-Learner/blob/a7cd4441e52b6e54aefdea33a4914e9132ebfd97/components-core/src/main/java/org/dllearner/reasoning/ClosedWorldReasoner.java#L1058
-        # \forall r.\bot     \equiv   \neg \exists r.\top
+        # READ Towards SPARQL - Based Induction for Large - Scale RDF Data sets Technical Report for the details
+        # http://svn.aksw.org/papers/2016/ECAI_SPARQL_Learner/tr_public.pdf
+        results = set()
+        indv_fillers = self.predict(filler_concept)
 
-        # (1) Compute individuals belonging to the negation of the filler .
+        candidates = {_ for _ in self.database[(self.database['relation'] == role)][
+            'subject'].tolist()}
 
-        individuals_neg_filler_concept = self.all_named_individuals - self.predict(filler_concept)
-        # (2) Compute individuals beloning to the \exist r. neg C
-        # (3) Domain - (2)
-        return self.all_named_individuals - self.existential_restriction(role=role,
-                                                                         filler_indv=individuals_neg_filler_concept)
+        for i in candidates:
+            # {SELECT ?var
+            #   (count(?s2) as ?cnt2)
+            #   WHERE {?var r ?s2}
+            #   GROUP By ?var}
+
+            cnt2 = {_ for _ in self.database[(self.database['subject'] == i) & (self.database['relation'] == role)][
+                'object'].tolist()}
+            # {SELECT ?var
+            #   (count (?s1) as ?cn1)
+            #   WHERE { ?var r ?s1 .
+            #           \tau(C,?s1) .}
+            #   GROUP BY ?var }
+
+            cnt1 = cnt2.intersection(indv_fillers)
+
+            if cnt1 == cnt2:
+                results.add(i)
+
+        return results
 
 
 class SPARQLCWR(AbstractReasoner):

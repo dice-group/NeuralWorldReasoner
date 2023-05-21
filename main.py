@@ -30,33 +30,22 @@ all_named_concepts = [NC(i) for i in all_named_concepts]
 
 swr = SPARQLCWR(url='http://localhost:3030/family/sparql', name='Fuseki')
 
-relations=swr.query("SELECT DISTINCT ?var WHERE { ?subject ?p <http://www.w3.org/2002/07/owl#NamedIndividual> .?subject ?var ?object .}")
+relations = swr.query(
+    "SELECT DISTINCT ?var WHERE { ?subject ?p <http://www.w3.org/2002/07/owl#NamedIndividual> .?subject ?var ?object .}")
+relations.remove('<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>')
 
 neural_kb = NWR(predictor=pretrained_model, gamma=0.25, all_named_individuals=all_named_individuals)
 cwr = CWR(database=kg, all_named_individuals=all_named_individuals)
+
 # Create Negations
 neg_named_concepts = [i.neg() for i in all_named_concepts]
 
-existential_res=[]
-universal_res=[]
+existential_res = []
+universal_res = []
 for role_iri in relations:
     for filler in all_named_concepts:
         existential_res.append(Restriction(opt='∃', role=role_iri, filler=filler))
         universal_res.append(Restriction(opt='∀', role=role_iri, filler=filler))
-# Un
-df= evaluate_results(true_results=compute_prediction(universal_res, predictor=cwr),
-                        predictions=compute_prediction(universal_res, predictor=swr))
-
-
-assert evaluate_results(true_results=compute_prediction(existential_res, predictor=cwr),
-                        predictions=compute_prediction(existential_res, predictor=swr))['Similarity'].mean() == 1.0
-
-exit(1)
-# Evaluate on all NC.
-assert evaluate_results(true_results=compute_prediction(all_named_concepts, predictor=cwr),
-                        predictions=compute_prediction(all_named_concepts, predictor=swr))['Similarity'].mean() == 1.0
-assert evaluate_results(true_results=compute_prediction(neg_named_concepts, predictor=cwr),
-                        predictions=compute_prediction(neg_named_concepts, predictor=swr))['Similarity'].mean() == 1.0
 # Create Unions and Intersections
 unions = []
 intersections = []
@@ -64,27 +53,44 @@ for i in all_named_concepts:
     for j in all_named_concepts:
         unions.append(i.union(j))
         intersections.append(i.intersection(j))
-#
 
+df = evaluate_results(true_results=compute_prediction(universal_res, predictor=swr),
+                      predictions=compute_prediction(universal_res, predictor=neural_kb))
+print(df)
+print(df[['Similarity','ConceptSize','RTFuseki','RTnwr']].mean())
+df = evaluate_results(true_results=compute_prediction(existential_res, predictor=swr),
+                      predictions=compute_prediction(existential_res, predictor=neural_kb))
+print(df)
+print(df[['Similarity','ConceptSize','RTFuseki','RTnwr']].mean())
+df = evaluate_results(true_results=compute_prediction(all_named_concepts, predictor=swr),
+                      predictions=compute_prediction(all_named_concepts, predictor=neural_kb))
+print(df)
+print(df[['Similarity','ConceptSize','RTFuseki','RTnwr']].mean())
+df = evaluate_results(true_results=compute_prediction(neg_named_concepts, predictor=swr),
+                      predictions=compute_prediction(neg_named_concepts, predictor=neural_kb))
+print(df)
+print(df[['Similarity','ConceptSize','RTFuseki','RTnwr']].mean())
+df = evaluate_results(true_results=compute_prediction(intersections, predictor=swr),
+                      predictions=compute_prediction(intersections, predictor=neural_kb))
+print(df)
+print(df[['Similarity','ConceptSize','RTFuseki','RTnwr']].mean())
+df = evaluate_results(true_results=compute_prediction(unions, predictor=swr),
+                      predictions=compute_prediction(unions, predictor=neural_kb))
+
+print(df)
+print(df[['Similarity','ConceptSize','RTFuseki','RTnwr']].mean())
+
+
+# Compare triple store results via SPARQL
+assert evaluate_results(true_results=compute_prediction(universal_res, predictor=cwr),
+                        predictions=compute_prediction(universal_res, predictor=swr))['Similarity'].mean() == 1.0
+assert evaluate_results(true_results=compute_prediction(existential_res, predictor=cwr),
+                        predictions=compute_prediction(existential_res, predictor=swr))['Similarity'].mean() == 1.0
+assert evaluate_results(true_results=compute_prediction(all_named_concepts, predictor=cwr),
+                        predictions=compute_prediction(all_named_concepts, predictor=swr))['Similarity'].mean() == 1.0
+assert evaluate_results(true_results=compute_prediction(neg_named_concepts, predictor=cwr),
+                        predictions=compute_prediction(neg_named_concepts, predictor=swr))['Similarity'].mean() == 1.0
 assert evaluate_results(true_results=compute_prediction(intersections, predictor=cwr),
                         predictions=compute_prediction(intersections, predictor=swr))['Similarity'].mean() == 1.0
 assert evaluate_results(true_results=compute_prediction(unions, predictor=cwr),
                         predictions=compute_prediction(unions, predictor=swr))['Similarity'].mean() == 1.0
-
-
-print(jaccard_similarity(y=cwr.existential_restriction(role='<http://www.benchmark.org/family#married>',
-                                                       filler_concept='<http://www.benchmark.org/family#Female>'),
-                         yhat=nwr.existential_restriction(role='<http://www.benchmark.org/family#married>',
-                                                          filler_concept='<http://www.benchmark.org/family#Female>')))
-
-print('Jaccard(CWR(Female ⊓ Sister),NWR(Female ⊓ Sister)):',
-      jaccard_similarity(
-          y=cwr.conjunction('<http://www.benchmark.org/family#Female>', '<http://www.benchmark.org/family#Sister>'),
-          yhat=nwr.conjunction('<http://www.benchmark.org/family#Female>',
-                               '<http://www.benchmark.org/family#Sister>')))
-
-print('Jaccard(CWR(Female ⊔ Sister),NWR(Female ⊔ Sister)):',
-      jaccard_similarity(
-          y=cwr.disjunction('<http://www.benchmark.org/family#Female>', '<http://www.benchmark.org/family#Sister>'),
-          yhat=nwr.disjunction('<http://www.benchmark.org/family#Female>',
-                               '<http://www.benchmark.org/family#Sister>')))
