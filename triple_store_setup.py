@@ -27,9 +27,8 @@ apache-jena-4.7.0.tar.gz  apache-jena-fuseki-4.7.0.tar.gz  family.nt
 09:16:41 INFO  loader          :: Finish - index OSP
 09:16:41 INFO  loader          :: Finish - index SPO
 09:16:41 INFO  loader          :: Finish - index POS
+
 (base) demir@demir:~/Desktop/Softwares/DXAI/Fuseki$
-
-
 # Run the Triple store
 (base) demir@demir:~/Desktop/Softwares/DXAI/Fuseki/apache-jena-fuseki-4.7.0$
 java -Xmx4G -jar fuseki-server.jar --tdb2 --loc=/home/demir/Desktop/Softwares/DXAI/Fuseki/databases/family /family
@@ -115,7 +114,6 @@ curl http://localhost:3030/family/ --data query=PREFIX%20rdf%3A%20%3Chttp%3A%2F%
 """
 
 import requests
-
 response = requests.post('http://localhost:3030/family/sparql', data={
     'query': 'SELECT ?s  { ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.benchmark.org/family#Brother>}'})
 # Adding brackets

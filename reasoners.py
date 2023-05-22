@@ -8,43 +8,54 @@ parser = DLSyntaxParser("http://www.benchmark.org/family#")
 converter = Owl2SparqlConverter()
 
 
+# print(converter.as_query("?var", parser.parse_expression('≥ 2 hasChild.Mother'), False))
+
 class AbstractDLConcept(ABC):
     pass
 
 
 class Restriction(AbstractDLConcept):
-    def __init__(self, opt: str, role: str, filler):
+    def __init__(self, opt: str = None, role: str = None, filler=None):
         super(Restriction, self)
         assert opt == '∃' or opt == '∀'
+        assert role is not None
         self.opt = opt
         self.role_iri = role
         self.filler = filler
-        self.str = opt + ' ' + role.split('#')[-1][:-1] + '.' + filler.str
-        self.sparql = converter.as_query("?var", parser.parse_expression(self.str), False)
+        self.str = self.opt + ' ' + role.split('#')[-1][:-1] + '.' + filler.str
+        self.sparql = None
+
+
+class ValueRestriction(AbstractDLConcept):
+    def __init__(self, opt: str = None, val: int = None, role: str = None, filler=None):
+        super(ValueRestriction, self)
+        assert opt == '≥' or opt == '≤'
+        assert role is not None
+        assert isinstance(val, int)
+        self.opt = opt
+        self.val = val
+        self.role_iri = role
+        self.filler = filler
+        self.str = self.opt + ' ' + f'{self.val} ' + role.split('#')[-1][:-1] + '.' + filler.str
+        self.sparql = None
 
 
 class ConjunctionDLConcept(AbstractDLConcept):
     def __init__(self, concept_a, concept_b):
         super(ConjunctionDLConcept, self)
-        self.str = concept_a.str + " ⊓ " + concept_b.str
+        self.str = "(" + concept_a.str + " ⊓ " + concept_b.str + ")"
         self.left = concept_a
         self.right = concept_b
-        self.sparql = "SELECT ?var  WHERE { " \
-                      "?var <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>" + f" {concept_a.iri}" + " . " + \
-                      "?var <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>" + f" {concept_b.iri}" + " . }"
-        self.sparql = converter.as_query("?var", parser.parse_expression(self.str), False)
+        self.sparql = None
 
 
 class DisjunctionDLConcept(AbstractDLConcept):
     def __init__(self, concept_a, concept_b):
         super(DisjunctionDLConcept, self)
-        self.str = concept_a.str + " ⊔ " + concept_b.str
+        self.str = "(" + concept_a.str + " ⊔ " + concept_b.str + ")"
         self.left = concept_a
         self.right = concept_b
-        self.sparql = "SELECT ?var  WHERE { " \
-                      "OPTIONAL {?var <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>" + f" {concept_a.iri}" + " }" + \
-                      "OPTIONAL {?var <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>" + f" {concept_b.iri}" + " }}"
-        self.sparql = converter.as_query("?var", parser.parse_expression(self.str), False)
+        self.sparql = None
 
 
 class NC(AbstractDLConcept):
@@ -53,7 +64,7 @@ class NC(AbstractDLConcept):
         self.iri = iri
         assert self.iri[0] == '<' and self.iri[-1] == '>'
         self.str = self.iri.split('#')[-1][:-1]
-        self.sparql = converter.as_query("?var", parser.parse_expression(self.str), False)
+        self.sparql = None
 
     def neg(self):
         return NNC(iri=self.iri)
@@ -71,8 +82,7 @@ class NNC(AbstractDLConcept):
         assert iri[0] == '<' and iri[-1] == '>'
         self.neg_iri = iri
         self.str = "¬" + iri.split('#')[-1][:-1]
-        self.sparql = converter.as_query("?var", parser.parse_expression(self.str), False)
-        # self.sparql = "SELECT ?var  { ?var ?p <http://www.w3.org/2002/07/owl#NamedIndividual>" + "FILTER NOT EXISTS { ?var <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> " + f"{self.neg_iri}" + "}}"
+        self.sparql = None  # converter.as_query("?var", parser.parse_expression(self.str), False)
 
     def neg(self):
         return NC(self.neg_iri)
@@ -96,6 +106,8 @@ class AbstractReasoner(ABC):
             return self.disjunction(concept)
         elif isinstance(concept, Restriction):
             return self.restriction(concept)
+        elif isinstance(concept, ValueRestriction):
+            return self.value_restriction(concept)
         else:
             raise NotImplementedError(type(concept))
 
@@ -146,11 +158,11 @@ class NWR(AbstractReasoner):
 
     def conjunction(self, concept: ConjunctionDLConcept) -> Set[str]:
         """ 	Conjunction   ⊓           & $C\sqcap D$    & $C^\mathcal{I}\cap D^\mathcal{I} """
-        return self.predict(concept=concept.left).intersection(self.predict(concept=concept.left))
+        return self.predict(concept=concept.left).intersection(self.predict(concept=concept.right))
 
     def disjunction(self, concept: DisjunctionDLConcept) -> Set[str]:
         """ ⊔ """
-        return self.predict(concept=concept.left).union(self.predict(concept=concept.left))
+        return self.predict(concept=concept.left).union(self.predict(concept=concept.right))
 
     def restriction(self, concept: Restriction) -> Set[str]:
         if concept.opt == '∃':
@@ -164,17 +176,15 @@ class NWR(AbstractReasoner):
         """ \exists r.C  { x \mid \exists y. (x,y) \in r^I \land y \in C^I } """
         # (1) Find individuals satisfying filler y \in C^I.
         if filler_concept:
-            filler_individuals = self.atomic_concept(concept=filler_concept)
+            filler_individuals = self.predict(concept=filler_concept)
         elif filler_indv:
             filler_individuals = filler_indv
         else:
             filler_individuals = self.all_named_individuals
-
         results = []
         for i in filler_individuals:
-            scores_per_indv = self.predictor.predict(relations=[role], tail_entities=[i])
-
-            ids = (scores_per_indv >= self.gamma).nonzero(as_tuple=True)[0].tolist()
+            scores_for_all = self.predictor.predict(relations=[role], tail_entities=[i])
+            ids = (scores_for_all >= self.gamma).nonzero(as_tuple=True)[0].tolist()
             if len(ids) >= 1:
                 results.extend(ids)
             else:
@@ -184,15 +194,14 @@ class NWR(AbstractReasoner):
     def universal_restriction(self, role: str, filler_concept: AbstractDLConcept):
 
         results = set()
-        indv_fillers = self.predict(filler_concept)
+        interpretation_of_filler = self.predict(filler_concept)
         # We should only consider the domain of the interpretation of the role.
         for i in self.all_named_individuals:
-
             # {SELECT ?var
             #   (count(?s2) as ?cnt2)
             #   WHERE { ?var r ?s2 }
             #   GROUP By ?var}
-            scores_for_all = self.predictor.predict(head_entities=[i], relations=[role]).flatten()
+            scores_for_all = self.predictor.predict(head_entities=[i], relations=[role])
             raw_results = {self.predictor.idx_to_entity[index] for index, flag in
                            enumerate(scores_for_all >= self.gamma) if flag}
             cnt2 = {i for i in raw_results if i in self.all_named_individuals}
@@ -202,11 +211,30 @@ class NWR(AbstractReasoner):
             #   WHERE { ?var r ?s1 .
             #           \tau(C,?s1) .}
             #   GROUP BY ?var }
-            cnt1 = cnt2.intersection(indv_fillers)
+            cnt1 = cnt2.intersection(interpretation_of_filler)
             # jaccard
-            if len(cnt1.intersection(cnt2))/(len(cnt1.union(cnt2)))>=self.gamma:
+            if len(cnt1.intersection(cnt2)) / (len(cnt1.union(cnt2))) >= self.gamma:
                 results.add(i)
         return results
+
+    def value_restriction(self, concept: ValueRestriction):
+        results = dict()
+        for i in self.predict(concept.filler):
+            scores_for_all = self.predictor.predict(relations=[concept.role_iri], tail_entities=[i])
+
+            # (2) Iterative (1) and return entities whose predicted score satisfies the condition.
+            raw_results = {self.predictor.idx_to_entity[index] for index, flag in
+                           enumerate(scores_for_all >= self.gamma) if flag}
+            # (3) Remove non entity predictions.
+            for k in raw_results:
+                if k in self.all_named_individuals:
+                    results.setdefault(k, 1)
+                    results[k] += 1
+        if concept.opt == '≥':
+            # at least
+            return {k for k, v in results.items() if v >= concept.val}
+        else:
+            return {k for k, v in results.items() if v <= concept.val}
 
 
 class CWR(AbstractReasoner):
@@ -267,17 +295,17 @@ class CWR(AbstractReasoner):
         # READ Towards SPARQL - Based Induction for Large - Scale RDF Data sets Technical Report for the details
         # http://svn.aksw.org/papers/2016/ECAI_SPARQL_Learner/tr_public.pdf
         results = set()
-        indv_fillers = self.predict(filler_concept)
+        filler_individuals = self.predict(filler_concept)
 
-        candidates = {_ for _ in self.database[(self.database['relation'] == role)][
+        domain_of_interpretation_of_relation = {_ for _ in self.database[(self.database['relation'] == role)][
             'subject'].tolist()}
 
-        for i in candidates:
+        for i in domain_of_interpretation_of_relation:
             # {SELECT ?var
             #   (count(?s2) as ?cnt2)
             #   WHERE {?var r ?s2}
             #   GROUP By ?var}
-
+            # All objects given subject and a relation
             cnt2 = {_ for _ in self.database[(self.database['subject'] == i) & (self.database['relation'] == role)][
                 'object'].tolist()}
             # {SELECT ?var
@@ -285,12 +313,9 @@ class CWR(AbstractReasoner):
             #   WHERE { ?var r ?s1 .
             #           \tau(C,?s1) .}
             #   GROUP BY ?var }
-
-            cnt1 = cnt2.intersection(indv_fillers)
-
-            if cnt1 == cnt2:
+            cnt1 = cnt2.intersection(filler_individuals)
+            if len(cnt1) == len(cnt2): # or cnt1==cnt2
                 results.add(i)
-
         return results
 
 
@@ -307,19 +332,14 @@ class SPARQLCWR(AbstractReasoner):
         return {'<' + i['var']['value'] + '>' for i in response.json()['results']['bindings']}
 
     def retrieve(self, concept):
-        return self.query(concept.sparql)
+        return self.query(converter.as_query("?var", parser.parse_expression(concept.str), False))
 
     def atomic_concept(self, concept: NC) -> Set[str]:
         """ {x | f(x,type,concept) \ge \gamma} """
         assert isinstance(concept, NC)
         return self.retrieve(concept)
 
-    def negated_atomic_concept(self, concept: NNC):
-        """
-
-        :param concept:
-        :return:
-        """
+    def negated_atomic_concept(self, concept: NNC)-> Set[str]:
         assert isinstance(concept, NNC)
         return self.retrieve(concept)
 
@@ -332,4 +352,7 @@ class SPARQLCWR(AbstractReasoner):
         return self.retrieve(concept)
 
     def restriction(self, concept):
+        return self.retrieve(concept)
+
+    def value_restriction(self, concept: ValueRestriction) -> Set[str]:
         return self.retrieve(concept)
