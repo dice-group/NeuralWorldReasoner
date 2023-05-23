@@ -201,7 +201,7 @@ class NWR(AbstractReasoner):
             #   (count(?s2) as ?cnt2)
             #   WHERE { ?var r ?s2 }
             #   GROUP By ?var}
-            scores_for_all = self.predictor.predict(head_entities=[i], relations=[role])
+            scores_for_all = self.predictor.predict(head_entities=[i], relations=[role]).flatten()
             raw_results = {self.predictor.idx_to_entity[index] for index, flag in
                            enumerate(scores_for_all >= self.gamma) if flag}
             cnt2 = {i for i in raw_results if i in self.all_named_individuals}

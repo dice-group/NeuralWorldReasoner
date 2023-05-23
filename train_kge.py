@@ -6,9 +6,9 @@ args = Args()
 # (2) Select a Dataset and a KGE
 args.path_dataset_folder = "KGs/Family"
 args.model = "AConEx"
-args.embedding_dim = 32
-args.num_epochs = 1
-args.num_of_output_channels = 2
+args.embedding_dim = 128
+args.num_epochs = 500
+args.num_of_output_channels = 3
 args.batch_size = 1024
 # NegSample leads to better results than KvsAll, KvsSample and 1vsAll do
 args.scoring_technique = "NegSample"

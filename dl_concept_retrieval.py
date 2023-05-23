@@ -9,7 +9,7 @@ pd.set_option("display.precision", 4)
 pd.pandas.set_option('display.max_columns', None)
 
 # (1) Load the model
-pretrained_model = KGE("Experiments/2023-05-16 10:51:31.694192")
+pretrained_model = KGE("Experiments/2023-05-23 14:28:29.360147")
 
 # (3) All entities \domain^\interperation
 entities = list(pretrained_model.entity_to_idx.keys())
@@ -33,8 +33,8 @@ swr = SPARQLCWR(url='http://localhost:3030/family/sparql', name='Fuseki')
 relations = swr.query(
     "SELECT DISTINCT ?var WHERE { ?subject ?p <http://www.w3.org/2002/07/owl#NamedIndividual> .?subject ?var ?object .}")
 relations.remove('<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>')
-relations=list(relations)
-neural_kb = NWR(predictor=pretrained_model, gamma=0.25, all_named_individuals=all_named_individuals)
+relations = list(relations)
+neural_kb = NWR(predictor=pretrained_model, gamma=0.15, all_named_individuals=all_named_individuals)
 cwr = CWR(database=kg, all_named_individuals=all_named_individuals)
 
 # Create Negated Atomic Concepts.
@@ -52,69 +52,30 @@ existential_res = []
 universal_res = []
 # Create Restrictions
 for role_iri in relations:
-    for filler in all_named_concepts[:3] + neg_named_concepts[:3] + unions[:3] + intersections[:3]:
+    for filler in all_named_concepts:
         existential_res.append(Restriction(opt='∃', role=role_iri, filler=filler))
         universal_res.append(Restriction(opt='∀', role=role_iri, filler=filler))
 
-value_at_least_restriction=[]
-value_at_most_restriction=[]
+value_at_least_restriction = []
+value_at_most_restriction = []
 for role_iri in relations:
-    for filler in all_named_concepts[:3] + neg_named_concepts[:3] + unions[:3] + intersections[:3]:
+    for filler in all_named_concepts:
         value_at_least_restriction.append(ValueRestriction(opt='≥', val=1, role=role_iri, filler=filler))
         value_at_most_restriction.append(ValueRestriction(opt='≤', val=3, role=role_iri, filler=filler))
 
-
-def eval_on_named_concepts():
-    # N_C
-    df = evaluate_results(true_results=compute_prediction(all_named_concepts, predictor=swr),
-                          predictions=compute_prediction(all_named_concepts, predictor=neural_kb))
-    print(df)
-    print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
-def eval_on_negations():
-    # \Neg N_C
-    df = evaluate_results(true_results=compute_prediction(neg_named_concepts, predictor=swr),
-                          predictions=compute_prediction(neg_named_concepts, predictor=neural_kb))
-    print(df)
-    print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
-def eval_on_unions():
-    df = evaluate_results(true_results=compute_prediction(unions, predictor=swr),
-                          predictions=compute_prediction(unions, predictor=neural_kb))
-    print(df)
-    print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
-def eval_on_intersections():
-    # Intersections
-    df = evaluate_results(true_results=compute_prediction(intersections, predictor=swr),
-                          predictions=compute_prediction(intersections, predictor=neural_kb))
-    # Unions
-    print(df)
-    print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
-def eval_on_universal_restrictions():
-    df = evaluate_results(true_results=compute_prediction(universal_res, predictor=swr),
-                          predictions=compute_prediction(universal_res, predictor=neural_kb))
-    print(df)
-    print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
-def eval_on_existential_restrictions():
-    df = evaluate_results(true_results=compute_prediction(existential_res, predictor=swr),
-                          predictions=compute_prediction(existential_res, predictor=neural_kb))
-    print(df)
-    print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
-def eval_on_atmost_value_restrictions():
-    df = evaluate_results(true_results=compute_prediction(value_at_most_restriction, predictor=swr),
-                          predictions=compute_prediction(value_at_most_restriction, predictor=neural_kb))
-    print(df)
-    print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
-def eval_on_atleast_value_restrictions():
-    df = evaluate_results(true_results=compute_prediction(value_at_least_restriction, predictor=swr),
-                          predictions=compute_prediction(value_at_least_restriction, predictor=neural_kb))
+for (name, i) in [('N_C', all_named_concepts), ('neg N_C', neg_named_concepts), ('Unions', unions),
+                  ('Intersect', intersections), ('Exists', existential_res), ('Uni', universal_res), ('AtLeast',value_at_least_restriction), ('AtMost',value_at_most_restriction)]:
+    df = evaluate_results(true_results=compute_prediction(i, predictor=swr),
+                          predictions=compute_prediction(i, predictor=neural_kb))
+    print('######')
+    print(name)
     print(df)
     print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
 
 
 # Compare triple store results via SPARQL
 assert evaluate_results(true_results=compute_prediction(universal_res, predictor=swr),
-                        predictions=compute_prediction(universal_res, predictor=cwr))['Similarity'].mean()>=0.85
-assert evaluate_results(true_results=compute_prediction(universal_res, predictor=swr),
-                        predictions=compute_prediction(universal_res, predictor=cwr))['Similarity'].mean()==1.0
+                        predictions=compute_prediction(universal_res, predictor=cwr))['Similarity'].mean() ==  1.0
 assert evaluate_results(true_results=compute_prediction(existential_res, predictor=cwr),
                         predictions=compute_prediction(existential_res, predictor=swr))['Similarity'].mean() == 1.0
 assert evaluate_results(true_results=compute_prediction(all_named_concepts, predictor=cwr),
