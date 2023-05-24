@@ -1,6 +1,6 @@
 from abstract_reasoner import AbstractReasoner
 from typing import Set
-
+from util import jaccard_similarity, compute_prediction, evaluate_results
 from dl_concepts import *
 import dicee
 import requests
@@ -14,13 +14,12 @@ converter = Owl2SparqlConverter()
 # print(converter.as_query("?var", parser.parse_expression('≥ 2 hasChild.Mother'), False))
 
 class NWR(AbstractReasoner):
-    def __init__(self, predictor: dicee.KGE, gammas, all_named_individuals: Set[str] = None):
+    def __init__(self, predictor: dicee.KGE, gammas=None, all_named_individuals: Set[str] = None):
         super(NWR, self)
         self.predictor = predictor
         self.gammas = gammas
         self.all_named_individuals = all_named_individuals
         self.name = 'nwr'
-        # We may need to find gammas for atomics,
 
     def atomic_concept(self, concept: NC) -> Set[str]:
         """ {x | f(x,type,concept) \ge \gamma} """
@@ -144,22 +143,26 @@ class NWR(AbstractReasoner):
         else:
             return {k for k, v in results.items() if v <= concept.val}
 
-    def find_gammas(self, gammas, concepts):
-        # Finding a good gamma
-        best_sim = 0.0
-        best_gamma = 0.0
-        for gamma in gammas:
-            neural_kb.gamma = gamma
-            for (name, i) in [concepts]:
-                df = evaluate_results(true_results=compute_prediction(i, predictor=swr),
-                                      predictions=compute_prediction(i, predictor=neural_kb))
+    def find_gammas(self, gammas, concepts, true_func):
+        for (name, i) in concepts:
+            print(f'Searching gamma for {name}')
+            # Finding a good gamma
+            best_sim = 0.0
+            best_gamma = 0.0
+            for gamma in gammas:
+                self.gammas[name] = gamma
+                df = evaluate_results(true_results=compute_prediction(i, predictor=true_func),
+                                      predictions=compute_prediction(i, predictor=self))
 
                 avg_sim = df[['Similarity']].mean().values[0]
                 # print(f"Gamma:{gamma}\t Sim:{avg_sim}")
                 if avg_sim > best_sim:
                     best_gamma = gamma
                     best_sim = avg_sim
-        print(f"Best Gamma:{best_gamma}\t for {name} Sim:{best_sim}")
+                    print(f"Current Best Gamma:{best_gamma}\t for {name} Sim:{best_sim}")
+
+            print(f"Best Gamma:{best_gamma}\t for {name} Sim:{best_sim}")
+            self.gammas[name] = best_gamma
 
 
 class SPARQLCWR(AbstractReasoner):

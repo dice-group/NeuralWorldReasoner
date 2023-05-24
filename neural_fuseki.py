@@ -51,7 +51,7 @@ for role_iri in relations:
         value_at_least_restriction.append(ValueRestriction(opt='≥', val=1, role=role_iri, filler=filler))
         value_at_most_restriction.append(ValueRestriction(opt='≤', val=3, role=role_iri, filler=filler))
 
-neural_kb = NWR(predictor=pretrained_model, gammas={'NC': 0.1, 'Exists': 0.7, 'Forall': 0.95, 'Value': 0.5},
+neural_kb = NWR(predictor=pretrained_model, gammas={'NC': 0.1, 'Exists': 0.7, 'Forall': 0.97, 'Value': 0.5},
                 all_named_individuals=all_named_individuals)
 
 # neural_kb.find_gammas(

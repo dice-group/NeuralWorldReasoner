@@ -47,7 +47,6 @@ class DisjunctionDLConcept(AbstractDLConcept):
         self.right = concept_b
         self.sparql = None
 
-
 class NC(AbstractDLConcept):
     def __init__(self, iri):
         super(NC, self)
@@ -60,10 +59,10 @@ class NC(AbstractDLConcept):
         return NNC(iri=self.iri)
 
     def union(self, other: AbstractDLConcept):
-        return ConjunctionDLConcept(self, other)
+        return DisjunctionDLConcept(self, other)
 
     def intersection(self, other: AbstractDLConcept):
-        return DisjunctionDLConcept(self, other)
+        return ConjunctionDLConcept(self, other)
 
 
 class NNC(AbstractDLConcept):

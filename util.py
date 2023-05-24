@@ -2,6 +2,13 @@ from typing import Set
 import pandas as pd
 import time
 
+def f1_score(yhat, pos, neg):
+    tp= len(yhat.intersection(pos))
+    fp=len(yhat.intersection(neg))
+    fn=len(pos.difference(yhat))
+    return tp/(tp + 0.5*(fp + fn ))
+
+
 
 def jaccard_similarity(y: Set[str], yhat: Set[str]) -> float:
     """
