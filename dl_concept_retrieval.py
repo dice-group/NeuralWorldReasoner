@@ -9,7 +9,7 @@ pd.set_option("display.precision", 4)
 pd.pandas.set_option('display.max_columns', None)
 
 # (1) Load the model
-pretrained_model = KGE("Experiments/2023-05-23 14:28:29.360147")
+pretrained_model = KGE("Experiments/2023-05-24 11:53:06.006435")
 
 # (3) All entities \domain^\interperation
 entities = list(pretrained_model.entity_to_idx.keys())
@@ -34,7 +34,8 @@ relations = swr.query(
     "SELECT DISTINCT ?var WHERE { ?subject ?p <http://www.w3.org/2002/07/owl#NamedIndividual> .?subject ?var ?object .}")
 relations.remove('<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>')
 relations = list(relations)
-neural_kb = NWR(predictor=pretrained_model, gamma=0.15, all_named_individuals=all_named_individuals)
+neural_kb = NWR(predictor=pretrained_model, gammas={'NC': 0.1, 'Forall': 0.1, 'Exists': 0.2, 'Value': 0.2},
+                all_named_individuals=all_named_individuals)
 cwr = CWR(database=kg, all_named_individuals=all_named_individuals)
 
 # Create Negated Atomic Concepts.
@@ -63,19 +64,34 @@ for role_iri in relations:
         value_at_least_restriction.append(ValueRestriction(opt='≥', val=1, role=role_iri, filler=filler))
         value_at_most_restriction.append(ValueRestriction(opt='≤', val=3, role=role_iri, filler=filler))
 
-for (name, i) in [('N_C', all_named_concepts), ('neg N_C', neg_named_concepts), ('Unions', unions),
-                  ('Intersect', intersections), ('Exists', existential_res), ('Uni', universal_res), ('AtLeast',value_at_least_restriction), ('AtMost',value_at_most_restriction)]:
+# Find suitable gammas
+#neural_kb.find_gammas(
+#    gammas=[0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95],
+#    concepts=[('NC', all_named_concepts), ('Exists', existential_res), ('Forall', universal_res),
+#              ('Value', value_at_least_restriction)])
+
+for (name, i) in [('N_C', all_named_concepts),
+                  ('neg N_C', neg_named_concepts),
+                  ('Unions', unions),
+                  ('Intersect', intersections),
+                  ('Exists', existential_res),
+                  ('Uni', universal_res),
+                  ('AtLeast', value_at_least_restriction),
+                  ('AtMost', value_at_most_restriction)
+                  ]:
     df = evaluate_results(true_results=compute_prediction(i, predictor=swr),
                           predictions=compute_prediction(i, predictor=neural_kb))
     print('######')
     print(name)
-    print(df)
+    # print(df)
+    # print(df.to_latex(index=False,float_format="%.3f"))
     print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
 
+exit(1)
 
 # Compare triple store results via SPARQL
 assert evaluate_results(true_results=compute_prediction(universal_res, predictor=swr),
-                        predictions=compute_prediction(universal_res, predictor=cwr))['Similarity'].mean() ==  1.0
+                        predictions=compute_prediction(universal_res, predictor=cwr))['Similarity'].mean() == 1.0
 assert evaluate_results(true_results=compute_prediction(existential_res, predictor=cwr),
                         predictions=compute_prediction(existential_res, predictor=swr))['Similarity'].mean() == 1.0
 assert evaluate_results(true_results=compute_prediction(all_named_concepts, predictor=cwr),

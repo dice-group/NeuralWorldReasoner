@@ -16,15 +16,14 @@ args.neg_ratio = 10
 args.eval_model = "train_val_test"
 report = Execute(args).start()
 """
-Epoch:500 | Loss:0.15082803 | Runtime:0.003 mins
-Done ! It took 1.257 minutes.
+Done ! It took 7.850 minutes.
 
 *** Save Trained Model ***
-Took 0.0016 seconds | Current Memory Usage  543.2 in MB
-Total computation time: 75.473 seconds
+Took 0.0023 seconds | Current Memory Usage  619.32 in MB
+Total computation time: 471.016 seconds
 Evaluate AConEx on Train set
 Num of triples 2033
 ** Evaluation without batching
-{'H@1': 0.9965568125922283, 'H@3': 0.999754058042302, 'H@10': 1.0, 'MRR': 0.9979778105700389}
+{'H@1': 0.999508116084604, 'H@3': 1.0, 'H@10': 1.0, 'MRR': 0.999754058042302}
 
 """
