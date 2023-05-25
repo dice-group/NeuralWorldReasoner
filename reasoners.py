@@ -87,7 +87,7 @@ class NWR(AbstractReasoner):
                 continue
         return {self.predictor.idx_to_entity[i] for i in results}
 
-    def universal_restriction(self, role: str, filler_concept: AbstractDLConcept):
+    def old_universal_restriction(self, role: str, filler_concept: AbstractDLConcept):
 
         results = set()
         interpretation_of_filler = self.predict(filler_concept)
@@ -100,6 +100,7 @@ class NWR(AbstractReasoner):
             scores_for_all = self.predictor.predict(head_entities=[i], relations=[role]).flatten()
             raw_results = {self.predictor.idx_to_entity[index] for index, flag in
                            enumerate(scores_for_all >= self.gammas['Forall']) if flag}
+            # Demir hasSibling {......}
             cnt2 = {i for i in raw_results if i in self.all_named_individuals}
 
             # {SELECT ?var
@@ -107,6 +108,7 @@ class NWR(AbstractReasoner):
             #   WHERE { ?var r ?s1 .
             #           \tau(C,?s1) .}
             #   GROUP BY ?var }
+            # Demir hasSibling {......}
             cnt1 = cnt2.intersection(interpretation_of_filler)
 
             cnt1_and_cnt2 = cnt1.intersection(cnt2)
@@ -123,6 +125,10 @@ class NWR(AbstractReasoner):
             else:
                 continue
         return results
+
+    def universal_restriction(self, role: str, filler_concept: AbstractDLConcept):
+        return self.all_named_individuals.difference(
+            self.existential_restriction(role=role, filler_concept=filler_concept.neg()))
 
     def value_restriction(self, concept: ValueRestriction):
         results = dict()
@@ -170,16 +176,36 @@ class SPARQLCWR(AbstractReasoner):
         super(SPARQLCWR, self)
         self.url = url
         self.name = name
+        self.all_individuals = self.query("PREFIX owl: <http://www.w3.org/2002/07/owl#>\n"
+                                          "SELECT DISTINCT ?var\n"
+                                          "WHERE {?var a owl:NamedIndividual.}")
 
-    def query(self, query: str):
+    def query(self, query: str)-> Set[str]:
+        """
+        Perform a SPARQL query
+        :param query:
+        :return:
+        """
         response = requests.post(self.url, data={
             'query': query})
         # Adding brackets
         return {'<' + i['var']['value'] + '>' for i in response.json()['results']['bindings']}
 
-    def retrieve(self, concept):
-        sparql_query = converter.as_query("?var", parser.parse_expression(concept.str), False)
-        return self.query(sparql_query)
+    def retrieve(self, concept) ->Set[str]:
+        """
+        perform concept retrieval
+        :param concept:
+        :return:
+        """
+        if isinstance(concept, Restriction) and concept.opt == '∀':
+            # A concept retrieval for ∀ r.C is performed by \neg \∃ r. ∃C
+            # given '∀' r.C, convert it into \neg r. \neg C
+            sparql_query = converter.as_query("?var", parser.parse_expression(
+                Restriction(opt="∃", role=concept.role_iri, filler=concept.filler.neg()).str), False)
+            return self.all_individuals.difference(self.query(sparql_query))
+        else:
+            sparql_query = converter.as_query("?var", parser.parse_expression(concept.str), False)
+            return self.query(sparql_query)
 
     def atomic_concept(self, concept: NC) -> Set[str]:
         """ {x | f(x,type,concept) \ge \gamma} """
@@ -262,6 +288,7 @@ class CWR(AbstractReasoner):
         { x | \forall y. (x,y) \in r^I \implies y \in C^I \}  """
         # READ Towards SPARQL - Based Induction for Large - Scale RDF Data sets Technical Report for the details
         # http://svn.aksw.org/papers/2016/ECAI_SPARQL_Learner/tr_public.pdf
+        raise NotImplementedError('Rewrite this part by using existential')
         results = set()
         filler_individuals = self.predict(filler_concept)
 
