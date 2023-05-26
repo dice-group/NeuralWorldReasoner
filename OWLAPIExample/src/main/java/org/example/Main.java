@@ -5,15 +5,43 @@ import org.semanticweb.owlapi.io.OWLXMLOntologyFormat;
 import org.semanticweb.owlapi.model.*;
 import org.semanticweb.owlapi.reasoner.*;
 import org.semanticweb.owlapi.reasoner.structural.StructuralReasonerFactory;
+import org.semanticweb.owlapi.util.ShortFormProvider;
+import org.semanticweb.owlapi.util.SimpleShortFormProvider;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.util.Set;
 // https://github.com/phillord/owl-api/blob/master/contract/src/test/java/org/coode/owlapi/examples/Examples.java
 // Press Shift twice to open the Search Everywhere dialog and type `show whitespaces`,
 // then press Enter. You can now see whitespace characters in your code.
+
+
+import java.util.Collections;
+import java.util.Set;
+
+import org.coode.owlapi.manchesterowlsyntax.ManchesterOWLSyntaxEditorParser;
+import org.semanticweb.owlapi.apibinding.OWLManager;
+import org.semanticweb.owlapi.expression.OWLEntityChecker;
+import org.semanticweb.owlapi.expression.ParserException;
+import org.semanticweb.owlapi.expression.ShortFormEntityChecker;
+import org.semanticweb.owlapi.io.StringDocumentSource;
+import org.semanticweb.owlapi.model.OWLClass;
+import org.semanticweb.owlapi.model.OWLClassExpression;
+import org.semanticweb.owlapi.model.OWLDataFactory;
+import org.semanticweb.owlapi.model.OWLEntity;
+import org.semanticweb.owlapi.model.OWLNamedIndividual;
+import org.semanticweb.owlapi.model.OWLOntology;
+import org.semanticweb.owlapi.model.OWLOntologyManager;
+import org.semanticweb.owlapi.reasoner.Node;
+import org.semanticweb.owlapi.reasoner.NodeSet;
+import org.semanticweb.owlapi.reasoner.OWLReasoner;
+import org.semanticweb.owlapi.util.BidirectionalShortFormProvider;
+import org.semanticweb.owlapi.util.BidirectionalShortFormProviderAdapter;
+
 public class Main {
-    public static void main(String[] args) throws OWLOntologyCreationException{
+    public Main() throws UnsupportedEncodingException {
+    }
+
+    public static void main(String[] args) throws OWLOntologyCreationException, IOException {
 
         OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
         File file = new File("/home/demir/Desktop/Softwares/JenaTut/family.nt");
@@ -25,40 +53,13 @@ public class Main {
         for (OWLNamedIndividual ind : ont.getIndividualsInSignature()) {
             System.out.println(ind);
         }
-        // We need to create an instance of OWLReasoner. An OWLReasoner provides
-        // the basic query functionality that we need, for example the ability
-        // obtain the subclasses of a class etc. To do this we use a reasoner
-        // factory. Create a reasoner factory. In this case, we will use HermiT,
+        // Create a reasoner factory. In this case, we will use HermiT,
         // but we could also use FaCT++ (http://code.google.com/p/factplusplus/)
-        // or Pellet(http://clarkparsia.com/pellet) Note that (as of 03 Feb
-        // 2010) FaCT++ and Pellet OWL API 3.0.0 compatible libraries are
-        // expected to be available in the near future). For now, we'll use
-        // HermiT HermiT can be downloaded from http://hermit-reasoner.com Make
-        // sure you get the HermiT library and add it to your class path. You
-        // can then instantiate the HermiT reasoner factory: Comment out the
-        // first line below and uncomment the second line below to instantiate
-        // the HermiT reasoner factory. You'll also need to import the
-        // org.semanticweb.HermiT.Reasoner package.
-        OWLReasonerFactory reasonerFactory = new StructuralReasonerFactory();
-        // OWLReasonerFactory reasonerFactory = new Reasoner.ReasonerFactory();
-        // We'll now create an instance of an OWLReasoner (the implementation
-        // being provided by HermiT as we're using the HermiT reasoner factory).
-        // The are two categories of reasoner, Buffering and NonBuffering. In
-        // our case, we'll create the buffering reasoner, which is the default
-        // kind of reasoner. We'll also attach a progress monitor to the
-        // reasoner. To do this we set up a configuration that knows about a
-        // progress monitor. Create a console progress monitor. This will print
-        // the reasoner progress out to the console.
-        ConsoleProgressMonitor progressMonitor = new ConsoleProgressMonitor();
-        // Specify the progress monitor via a configuration. We could also
-        // specify other setup parameters in the configuration, and different
-        // reasoners may accept their own defined parameters this way.
-        OWLReasonerConfiguration config = new SimpleConfiguration(progressMonitor);
-        // Create a reasoner that will reason over our ontology and its imports
-        // closure. Pass in the configuration.
-        OWLReasoner reasoner = reasonerFactory.createReasoner(ont, config);
+        // or Pellet(http://clarkparsia.com/pellet)
+        OWLReasoner reasoner = new StructuralReasonerFactory().createReasoner(ont, new SimpleConfiguration(new ConsoleProgressMonitor()));
         // Ask the reasoner to do all the necessary work now
         reasoner.precomputeInferences();
+
         // We can determine if the ontology is actually consistent (in this
         // case, it should be).
         boolean consistent = reasoner.isConsistent();
@@ -127,5 +128,169 @@ public class Main {
             System.out.println("    " + ind);
         }
         System.out.println("\n");
+        ShortFormProvider shortFormProvider = new SimpleShortFormProvider();
+        DLQueryPrinter dlQueryPrinter = new DLQueryPrinter(new DLQueryEngine(reasoner,
+                shortFormProvider), shortFormProvider);
+        // Enter the query loop. A user is expected to enter class
+        // expression on the command line.
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in, "UTF-8"));
+        while (true) {
+            System.out
+                    .println("Type a class expression in Manchester Syntax and press Enter (or press x to exit):");
+            String classExpression = br.readLine();
+            // Check for exit condition
+            if (classExpression == null || classExpression.equalsIgnoreCase("x")) {
+                break;
+            }
+            dlQueryPrinter.askQuery(classExpression.trim());
+            System.out.println();
+        }
+    }
+    // learn manchester syntax https://ceur-ws.org/Vol-216/submission_9.pdf
+    // NOT Male AND Not Son
+    // hasSibling SOME Female
+
+    }
+
+
+
+class DLQueryEngine {
+    private final OWLReasoner reasoner;
+    private final DLQueryParser parser;
+
+    public DLQueryEngine(OWLReasoner reasoner, ShortFormProvider shortFormProvider) {
+        this.reasoner = reasoner;
+        parser = new DLQueryParser(reasoner.getRootOntology(), shortFormProvider);
+    }
+
+    public Set<OWLClass> getSuperClasses(String classExpressionString, boolean direct) {
+        if (classExpressionString.trim().length() == 0) {
+            return Collections.emptySet();
+        }
+        OWLClassExpression classExpression = parser
+                .parseClassExpression(classExpressionString);
+        NodeSet<OWLClass> superClasses = reasoner
+                .getSuperClasses(classExpression, direct);
+        return superClasses.getFlattened();
+    }
+
+    public Set<OWLClass> getEquivalentClasses(String classExpressionString) {
+        if (classExpressionString.trim().length() == 0) {
+            return Collections.emptySet();
+        }
+        OWLClassExpression classExpression = parser
+                .parseClassExpression(classExpressionString);
+        Node<OWLClass> equivalentClasses = reasoner.getEquivalentClasses(classExpression);
+        Set<OWLClass> result = null;
+        if (classExpression.isAnonymous()) {
+            result = equivalentClasses.getEntities();
+        } else {
+            result = equivalentClasses.getEntitiesMinus(classExpression.asOWLClass());
+        }
+        return result;
+    }
+
+    public Set<OWLClass> getSubClasses(String classExpressionString, boolean direct) {
+        if (classExpressionString.trim().length() == 0) {
+            return Collections.emptySet();
+        }
+        OWLClassExpression classExpression = parser
+                .parseClassExpression(classExpressionString);
+        NodeSet<OWLClass> subClasses = reasoner.getSubClasses(classExpression, direct);
+        return subClasses.getFlattened();
+    }
+
+    public Set<OWLNamedIndividual> getInstances(String classExpressionString,
+                                                boolean direct) {
+        if (classExpressionString.trim().length() == 0) {
+            return Collections.emptySet();
+        }
+        OWLClassExpression classExpression = parser
+                .parseClassExpression(classExpressionString);
+        NodeSet<OWLNamedIndividual> individuals = reasoner.getInstances(classExpression,
+                direct);
+        return individuals.getFlattened();
+    }
+}
+
+class DLQueryParser {
+    private final OWLOntology rootOntology;
+    private final BidirectionalShortFormProvider bidiShortFormProvider;
+
+    public DLQueryParser(OWLOntology rootOntology, ShortFormProvider shortFormProvider) {
+        this.rootOntology = rootOntology;
+        OWLOntologyManager manager = rootOntology.getOWLOntologyManager();
+        Set<OWLOntology> importsClosure = rootOntology.getImportsClosure();
+        // Create a bidirectional short form provider to do the actual mapping.
+        // It will generate names using the input
+        // short form provider.
+        bidiShortFormProvider = new BidirectionalShortFormProviderAdapter(manager,
+                importsClosure, shortFormProvider);
+    }
+
+    public OWLClassExpression parseClassExpression(String classExpressionString) {
+        OWLDataFactory dataFactory = rootOntology.getOWLOntologyManager()
+                .getOWLDataFactory();
+        ManchesterOWLSyntaxEditorParser parser = new ManchesterOWLSyntaxEditorParser(
+                dataFactory, classExpressionString);
+        parser.setDefaultOntology(rootOntology);
+        OWLEntityChecker entityChecker = new ShortFormEntityChecker(bidiShortFormProvider);
+        parser.setOWLEntityChecker(entityChecker);
+        return parser.parseClassExpression();
+    }
+}
+
+class DLQueryPrinter {
+    private final DLQueryEngine dlQueryEngine;
+    private final ShortFormProvider shortFormProvider;
+
+    public DLQueryPrinter(DLQueryEngine engine, ShortFormProvider shortFormProvider) {
+        this.shortFormProvider = shortFormProvider;
+        dlQueryEngine = engine;
+    }
+
+    public void askQuery(String classExpression) {
+        if (classExpression.length() == 0) {
+            System.out.println("No class expression specified");
+        } else {
+            try {
+                StringBuilder sb = new StringBuilder();
+                sb.append("\\nQUERY:   ").append(classExpression).append("\\n\\n");
+                Set<OWLClass> superClasses = dlQueryEngine.getSuperClasses(
+                        classExpression, false);
+                printEntities("SuperClasses", superClasses, sb);
+                Set<OWLClass> equivalentClasses = dlQueryEngine
+                        .getEquivalentClasses(classExpression);
+                printEntities("EquivalentClasses", equivalentClasses, sb);
+                Set<OWLClass> subClasses = dlQueryEngine.getSubClasses(classExpression,
+                        true);
+                printEntities("SubClasses", subClasses, sb);
+                Set<OWLNamedIndividual> individuals = dlQueryEngine.getInstances(
+                        classExpression, true);
+                printEntities("Instances", individuals, sb);
+                System.out.println(sb.toString());
+            } catch (ParserException e) {
+                System.out.println(e.getMessage());
+            }
+        }
+    }
+
+    private void printEntities(String name, Set<? extends OWLEntity> entities,
+                               StringBuilder sb) {
+        sb.append(name);
+        int length = 50 - name.length();
+        for (int i = 0; i < length; i++) {
+            sb.append(".");
+        }
+        sb.append("\\n\\n");
+        if (!entities.isEmpty()) {
+            for (OWLEntity entity : entities) {
+                sb.append("\\t").append(shortFormProvider.getShortForm(entity))
+                        .append("\\n");
+            }
+        } else {
+            sb.append("\\t[NONE]\\n");
+        }
+        sb.append("\\n");
     }
 }
