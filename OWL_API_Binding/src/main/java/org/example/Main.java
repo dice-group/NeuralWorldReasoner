@@ -39,6 +39,8 @@ public class Main {
             // Load the KOALA example ontology defined before as a constant.
             OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
             File file = new File("/home/demir/Desktop/Softwares/NRW/KGs/Family/family-benchmark_rich_background.owl");
+            //File file = new File("/home/demir/Desktop/Softwares/DRILL_RAKI/KGs/Carcinogenesis/carcinogenesis.owl");
+
             OWLOntology ontology = manager.loadOntologyFromOntologyDocument(file);
             System.out.println("Loaded ontology: " + ontology);
             // We need a reasoner to do our query answering
