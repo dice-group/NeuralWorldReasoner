@@ -1,5 +1,4 @@
 package org.example;
-
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.expression.OWLEntityChecker;
 import org.semanticweb.owlapi.expression.ShortFormEntityChecker;
@@ -29,31 +28,41 @@ import org.semanticweb.owlapi.util.mansyntax.ManchesterOWLSyntaxParser;
 
 import static org.semanticweb.owlapi.util.OWLAPIStreamUtils.asList;
 import static org.semanticweb.owlapi.util.OWLAPIStreamUtils.asUnorderedSet;
+import static spark.Spark.*;
 
-public class Main {
+public class HermiTRetrieval {
     /**
      * @param args args
      */
-    public static void main(String[] args) {
-        try {
-            // Load the KOALA example ontology defined before as a constant.
-            OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
-            File file = new File("/home/demir/Desktop/Softwares/NRW/KGs/Family/family-benchmark_rich_background.owl");
-            //File file = new File("/home/demir/Desktop/Softwares/DRILL_RAKI/KGs/Carcinogenesis/carcinogenesis.owl");
+    private static final File file = new File("/home/demir/Desktop/Softwares/NRW/KGs/Family/family-benchmark_rich_background.owl");
 
-            OWLOntology ontology = manager.loadOntologyFromOntologyDocument(file);
-            System.out.println("Loaded ontology: " + ontology);
-            // We need a reasoner to do our query answering
-            OWLReasoner reasoner = createReasoner(ontology);
-            ShortFormProvider shortFormProvider = new SimpleShortFormProvider();
-            DLQueryPrinter dlQueryPrinter = new DLQueryPrinter(
-                    new DLQueryEngine(reasoner, shortFormProvider), shortFormProvider);
-            doQueryLoop(dlQueryPrinter);
+    public static void main(String[] args) {
+        //https://github.com/perwendel/spark
+        port(8080);
+        OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
+
+        OWLOntology ontology = null;
+        try {
+            ontology = manager.loadOntologyFromOntologyDocument(file);
         } catch (OWLOntologyCreationException e) {
-            System.out.println("Could not load ontology: " + e.getMessage());
-        } catch (IOException ioEx) {
-            System.out.println(ioEx.getMessage());
+            throw new RuntimeException(e);
         }
+        System.out.println("Loaded ontology: " + ontology);
+
+        DLQueryEngine dl=new DLQueryEngine(createReasoner(ontology), new SimpleShortFormProvider());
+
+        post("/hermit", (request, response) -> {
+            String cl=request.body().trim();
+            Set<OWLNamedIndividual> individuals= dl.getInstances(cl, true);
+            //JSONObject jo = new JSONObject();
+            //jo.put("concept", cl);
+            //jo.put("individuals", individuals);
+
+            return individuals;
+        });
+
+
+
     }
 
     private static void doQueryLoop(DLQueryPrinter dlQueryPrinter) throws IOException {
