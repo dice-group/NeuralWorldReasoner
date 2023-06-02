@@ -1,4 +1,6 @@
 package org.example;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.expression.OWLEntityChecker;
 import org.semanticweb.owlapi.expression.ShortFormEntityChecker;
@@ -12,6 +14,7 @@ import org.semanticweb.owlapi.util.SimpleShortFormProvider;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -40,7 +43,7 @@ public class HermiTRetrieval {
         //https://github.com/perwendel/spark
         port(8080);
         OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
-
+        //TODO: File should be given as an argument.
         OWLOntology ontology = null;
         try {
             ontology = manager.loadOntologyFromOntologyDocument(file);
@@ -48,17 +51,19 @@ public class HermiTRetrieval {
             throw new RuntimeException(e);
         }
         System.out.println("Loaded ontology: " + ontology);
-
         DLQueryEngine dl=new DLQueryEngine(createReasoner(ontology), new SimpleShortFormProvider());
-
         post("/hermit", (request, response) -> {
             String cl=request.body().trim();
             Set<OWLNamedIndividual> individuals= dl.getInstances(cl, true);
-            //JSONObject jo = new JSONObject();
-            //jo.put("concept", cl);
-            //jo.put("individuals", individuals);
+            JSONObject jo = new JSONObject();
+            jo.put("concept", cl);
+            JSONArray array=new JSONArray();
+            for (OWLNamedIndividual temp : individuals) {
+                array.put(temp);
+            }
+            jo.put("individuals",array);
 
-            return individuals;
+            return jo;
         });
 
 
