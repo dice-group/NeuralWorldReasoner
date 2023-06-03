@@ -1,5 +1,6 @@
 from abc import ABC
 
+
 class AbstractDLConcept(ABC):
     pass
 
@@ -11,10 +12,17 @@ class Restriction(AbstractDLConcept):
         assert role is not None
         self.opt = opt
         self.role_iri = role
+        self.role = role.split('#')[-1][:-1]
         self.filler = filler
-        self.str = self.opt + ' ' + role.split('#')[-1][:-1] + '.' + filler.str
+        self.str = self.opt + ' ' + self.role + '.' + filler.str
         self.sparql = None
 
+    @property
+    def manchester_str(self):
+        if self.opt == '∃':
+            return self.role + ' SOME' + self.filler.manchester_str
+        elif self.opt == '∀':
+            return self.role + ' ONLY' + self.filler.manchester_str
 
 class ValueRestriction(AbstractDLConcept):
     def __init__(self, opt: str = None, val: int = None, role: str = None, filler=None):
@@ -25,8 +33,9 @@ class ValueRestriction(AbstractDLConcept):
         self.opt = opt
         self.val = val
         self.role_iri = role
+        self.role = role.split('#')[-1][:-1]
         self.filler = filler
-        self.str = self.opt + ' ' + f'{self.val} ' + role.split('#')[-1][:-1] + '.' + filler.str
+        self.str = self.opt + ' ' + f'{self.val} ' + self.role + '.' + filler.str
         self.sparql = None
 
 
@@ -38,6 +47,10 @@ class ConjunctionDLConcept(AbstractDLConcept):
         self.right = concept_b
         self.sparql = None
 
+    @property
+    def manchester_str(self):
+        return "(" + self.left.manchester_str + " AND " + self.right.manchester_str + ")"
+
 
 class DisjunctionDLConcept(AbstractDLConcept):
     def __init__(self, concept_a, concept_b):
@@ -47,6 +60,11 @@ class DisjunctionDLConcept(AbstractDLConcept):
         self.right = concept_b
         self.sparql = None
 
+    @property
+    def manchester_str(self):
+        return "(" + self.left.manchester_str + " OR " + self.right.manchester_str + ")"
+
+
 class NC(AbstractDLConcept):
     def __init__(self, iri):
         super(NC, self)
@@ -54,6 +72,10 @@ class NC(AbstractDLConcept):
         assert self.iri[0] == '<' and self.iri[-1] == '>'
         self.str = self.iri.split('#')[-1][:-1]
         self.sparql = None
+
+    @property
+    def manchester_str(self):
+        return self.str
 
     def neg(self):
         return NNC(iri=self.iri)
@@ -72,6 +94,10 @@ class NNC(AbstractDLConcept):
         self.neg_iri = iri
         self.str = "¬" + iri.split('#')[-1][:-1]
         self.sparql = None  # converter.as_query("?var", parser.parse_expression(self.str), False)
+
+    @property
+    def manchester_str(self):
+        return self.str.replace('¬', 'NOT')
 
     def neg(self):
         return NC(self.neg_iri)

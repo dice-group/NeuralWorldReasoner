@@ -171,6 +171,45 @@ class NWR(AbstractReasoner):
             self.gammas[name] = best_gamma
 
 
+class HermiT(AbstractReasoner):
+    def __init__(self, url):
+        super(HermiT, self)
+        self.url = url
+        self.name = 'HermiT'
+
+    def retrieve(self, concept) -> Set[str]:
+        """
+        perform concept retrieval
+        :param concept:
+        :return:
+        """
+        return {i for i in
+                requests.post('http://localhost:8080/hermit', data=concept.manchester_str).json()['individuals']}
+
+    def atomic_concept(self, concept: NC) -> Set[str]:
+        """ {x | f(x,type,concept) \ge \gamma} """
+        assert isinstance(concept, NC)
+        return self.retrieve(concept)
+
+    def negated_atomic_concept(self, concept: NNC) -> Set[str]:
+        assert isinstance(concept, NNC)
+        return self.retrieve(concept)
+
+    def conjunction(self, concept) -> Set[str]:
+        """  Conjunction   (⊓) : C ⊓ D  : C^I ⊓ D^I """
+        return self.retrieve(concept)
+
+    def disjunction(self, concept) -> Set[str]:
+        """  Disjunction   (⊔) : C ⊔ D  : C^I ⊔ D^I """
+        return self.retrieve(concept)
+
+    def restriction(self, concept):
+        return self.retrieve(concept)
+
+    def value_restriction(self, concept: ValueRestriction) -> Set[str]:
+        return self.retrieve(concept)
+
+
 class SPARQLCWR(AbstractReasoner):
     def __init__(self, url, name: str = 'sparqlcwr'):
         super(SPARQLCWR, self)
@@ -180,7 +219,7 @@ class SPARQLCWR(AbstractReasoner):
                                           "SELECT DISTINCT ?var\n"
                                           "WHERE {?var a owl:NamedIndividual.}")
 
-    def query(self, query: str)-> Set[str]:
+    def query(self, query: str) -> Set[str]:
         """
         Perform a SPARQL query
         :param query:
@@ -191,7 +230,7 @@ class SPARQLCWR(AbstractReasoner):
         # Adding brackets
         return {'<' + i['var']['value'] + '>' for i in response.json()['results']['bindings']}
 
-    def retrieve(self, concept) ->Set[str]:
+    def retrieve(self, concept) -> Set[str]:
         """
         perform concept retrieval
         :param concept:
