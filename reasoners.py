@@ -4,14 +4,7 @@ from util import jaccard_similarity, compute_prediction, evaluate_results
 from dl_concepts import *
 import dicee
 import requests
-from owlapy.parser import DLSyntaxParser
-from owlapy.owl2sparql.converter import Owl2SparqlConverter
 
-parser = DLSyntaxParser("http://www.benchmark.org/family#")
-converter = Owl2SparqlConverter()
-
-
-# print(converter.as_query("?var", parser.parse_expression('≥ 2 hasChild.Mother'), False))
 
 class NWR(AbstractReasoner):
     def __init__(self, predictor: dicee.KGE, gammas=None, all_named_individuals: Set[str] = None):
@@ -183,8 +176,13 @@ class HermiT(AbstractReasoner):
         :param concept:
         :return:
         """
-        return {i for i in
-                requests.post('http://localhost:8080/hermit', data=concept.manchester_str).json()['individuals']}
+        try:
+            return {i for i in
+                    requests.post('http://localhost:8080/hermit', data=concept.manchester_str).json()['individuals']}
+        except requests.exceptions.JSONDecodeError:
+            print('JSON Decoding Error')
+            print(concept.manchester_str)
+            return set()
 
     def atomic_concept(self, concept: NC) -> Set[str]:
         """ {x | f(x,type,concept) \ge \gamma} """
