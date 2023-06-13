@@ -1,3 +1,10 @@
+"""
+Description Logic Concept Retrieval
+
+Baseline: A triple store Fuseki retrieves instances of a description logic concept via SPARQL mappings
+
+Our Approach: A neural link predictor
+"""
 from dicee import KGE
 from reasoners import NWR, SPARQLCWR, NC, Restriction, ValueRestriction
 from util import compute_prediction, evaluate_results
@@ -52,12 +59,18 @@ for role_iri in relations:
         value_at_least_restriction.append(ValueRestriction(opt='≥', val=1, role=role_iri, filler=filler))
         value_at_most_restriction.append(ValueRestriction(opt='≤', val=3, role=role_iri, filler=filler))
 # Initialize a Neural Reasoner
-neural_kb = NWR(predictor=pretrained_model, gammas={'NC': 0.1, 'Exists': 0.7, 'Forall': 0.97, 'Value': 0.5},
+neural_kb = NWR(predictor=pretrained_model, gammas={'NC': 0.1, 'Exists': 0.7, 'Forall': 0.01, 'Value': 0.5},
                 all_named_individuals=all_named_individuals)
+for i in all_named_concepts:
+    if 'Child'==i.str:
+        y=neural_kb.predict(concept=i)
+        print(len(y))
+exit(1)
+
 # Find suitable gamma thresholds for single hop prediction
-neural_kb.find_gammas(gammas=[0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97, 1.00],
-                      concepts=[('NC', all_named_concepts), ('Exists', existential_res), ('Forall', universal_res),
-                                ('Value', value_at_least_restriction)], true_func=swr)
+#neural_kb.find_gammas(gammas=[0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97, 1.00],
+#                      concepts=[('NC', all_named_concepts), ('Exists', existential_res), ('Forall', universal_res),
+#                                ('Value', value_at_least_restriction)], true_func=swr)
 # Evaluate neural model with Fuseki triple store
 for (name, i) in [('N_C', all_named_concepts),
                   ('neg N_C', neg_named_concepts),
@@ -68,6 +81,7 @@ for (name, i) in [('N_C', all_named_concepts),
                   ('AtLeast', value_at_least_restriction),
                   ('AtMost', value_at_most_restriction)
                   ]:
+    print(f'Evaluate {len(i)} number of {name} concepts...')
     df = evaluate_results(true_results=compute_prediction(i, predictor=swr),
                           predictions=compute_prediction(i, predictor=neural_kb))
     print('######')

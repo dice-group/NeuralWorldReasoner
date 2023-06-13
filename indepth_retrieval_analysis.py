@@ -27,8 +27,6 @@ all_named_individuals = swr.query("PREFIX owl: <http://www.w3.org/2002/07/owl#>\
 neural_kb = NWR(predictor=pretrained_model, gammas={'NC': 0.1, 'Exists': 0.7, 'Forall': 0.01, 'Value': 0.5},
                 all_named_individuals=all_named_individuals)
 
-
-
 # (5) Get all roles.
 relations = swr.query(
     "SELECT DISTINCT ?var WHERE { ?subject ?p <http://www.w3.org/2002/07/owl#NamedIndividual> .?subject ?var ?object .}")
@@ -41,15 +39,14 @@ all_named_concepts = [NC(i) for i in all_named_concepts]
 
 for i in all_named_concepts:
     print(f"{i.str}\t{i.manchester_str}")
-    y_swr=swr.predict(i)
+    y_swr = swr.predict(i)
 
-    y_hermit=hermit.predict(i)
+    y_hermit = hermit.predict(i)
 
-    print(len(y_swr),len(y_hermit),y_swr==y_hermit)
+    print(len(y_swr), len(y_hermit), y_swr == y_hermit)
 
-
+exit(1)
 print(requests.post('http://localhost:8080/hermit', data='hasSibling SOME (Female)').json())
-
 
 print(requests.post('http://localhost:8080/hermit', data='Person').json())
 print(requests.post('http://localhost:8080/hermit', data='Male').json())

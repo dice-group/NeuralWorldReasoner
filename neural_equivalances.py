@@ -1,3 +1,10 @@
+"""
+Description Logic Concept Retrieval in an open-world setting
+
+Baseline: An OWL Reasoner HermiT
+Our Approach: A neural link predictor
+"""
+
 from dicee import KGE
 from reasoners import HermiT, NWR, SPARQLCWR, NC, Restriction, ValueRestriction
 from util import compute_prediction, evaluate_results
@@ -54,29 +61,32 @@ for role_iri in relations:
         value_at_least_restriction.append(ValueRestriction(opt='≥', val=1, role=role_iri, filler=filler))
         value_at_most_restriction.append(ValueRestriction(opt='≤', val=3, role=role_iri, filler=filler))
 # Initialize a Neural Reasoner
-neural_kb = NWR(predictor=pretrained_model, gammas={'NC': 0.1, 'Exists': 0.7, 'Forall': 0.01, 'Value': 0.5},
-                all_named_individuals=all_named_individuals)
+neural_reasoner = NWR(predictor=pretrained_model, gammas={'NC': 0.1, 'Exists': 0.7, 'Forall': 0.01, 'Value': 0.5},
+                      all_named_individuals=all_named_individuals)
 
 # Find suitable gamma thresholds for single hop prediction
-# neural_kb.find_gammas(gammas=[0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97, 1.00],
-#                      concepts=[('NC', all_named_concepts[:3]), ('Unions', unions[:3]), ('Intersect', intersections[:3])],
-#                      true_func=hermit)
+#neural_reasoner.find_gammas(gammas=[0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97, 1.00],
+#                            concepts=[('NC', all_named_concepts)], true_func=hermit)
 # Evaluate neural model with Fuseki triple store
 for (name, i) in [('N_C', all_named_concepts),
-                  # ('neg N_C', neg_named_concepts),
+                  ('neg N_C', neg_named_concepts),
                   ('Unions', unions),
                   ('Intersect', intersections),
                   ('Exists', existential_res),
                   ('Uni', universal_res),
-                  # ('AtLeast', value_at_least_restriction),
-                  # ('AtMost', value_at_most_restriction)
+                  ('AtLeast', value_at_least_restriction),
+                  ('AtMost', value_at_most_restriction)
                   ]:
-    df = evaluate_results(true_results=compute_prediction(i, predictor=swr),
-                          predictions=compute_prediction(i, predictor=hermit))
+    print(f'{name} starts {len(i)}')
+    df = evaluate_results(true_results=compute_prediction(i, predictor=hermit),
+                          predictions=compute_prediction(i, predictor=neural_reasoner))
     print('######')
     print(name)
-    # print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
-    # print(df[['Similarity', 'ConceptSize', 'RTHermiT', 'RTnwr']].mean())
-    print(df[['Similarity', 'ConceptSize', 'RTHermiT', 'RTFuseki']].mean())
-
-    # print(df.to_latex(index=False, float_format="%.3f"))
+    if len(df)>0:
+        # print(df)
+        # print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
+        print(df[['Similarity', 'ConceptSize', 'RTHermiT', 'RTnwr']].mean())
+        # print(df[['Similarity', 'ConceptSize', 'RTHermiT', 'RTFuseki']].mean())
+        print(df.to_latex(index=False, float_format="%.3f"))
+    else:
+        print('Size is 0.')
