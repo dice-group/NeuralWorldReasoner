@@ -1,8 +1,10 @@
 from dicee import KGE, Execute
-from dicee.config import Args
+# from dicee.config import Args
+from dicee.config import Namespace
+
 
 # (1) Load Default Params
-args = Args()
+args = Namespace() 
 # (2) Select a Dataset and a KGE
 args.path_dataset_folder = "KGs/Family"
 args.model = "AConEx"
@@ -15,6 +17,7 @@ args.scoring_technique = "NegSample"
 args.neg_ratio = 10
 args.eval_model = "train_val_test"
 report = Execute(args).start()
+
 """
 Done ! It took 7.850 minutes.
 
@@ -26,4 +29,16 @@ Num of triples 2033
 ** Evaluation without batching
 {'H@1': 0.999508116084604, 'H@3': 1.0, 'H@10': 1.0, 'MRR': 0.999754058042302}
 
+"""
+
+
+
+"""
+*** Save Trained Model ***
+Took 0.0051 secs | Current Memory Usage  619.58 in MB
+Total Runtime: 443.954 seconds
+Evaluate AConEx on Train set
+Num of triples 2033
+** Evaluation without batching
+{'H@1': 0.9990162321692081, 'H@3': 1.0, 'H@10': 1.0, 'MRR': 0.999508116084604}
 """

@@ -17,7 +17,8 @@ pd.set_option("display.precision", 4)
 pd.pandas.set_option('display.max_columns', None)
 
 # (1) Load the model
-pretrained_model = KGE("Experiments/2023-05-24 11:53:06.006435")
+experiment_path = 'Experiments/2023-09-07 11-25-46.731312'
+pretrained_model = KGE(experiment_path)
 # (2) Build a SPARQL connection.
 swr = SPARQLCWR(url='http://localhost:3030/family/sparql', name='Fuseki')
 # (3) Get all named classes/concepts.
@@ -34,6 +35,7 @@ relations = swr.query(
 # (5.1) Remove the type
 relations.remove('<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>')
 relations = list(relations)
+
 # (6) Concept Creation: Create  atomic concepts, negations, unions ..
 # Order Matters at testing time.
 all_named_concepts = [NC(i) for i in all_named_concepts]
@@ -65,7 +67,8 @@ for i in all_named_concepts:
     if 'Child'==i.str:
         y=neural_kb.predict(concept=i)
         print(len(y))
-exit(1)
+        
+
 
 # Find suitable gamma thresholds for single hop prediction
 #neural_kb.find_gammas(gammas=[0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97, 1.00],

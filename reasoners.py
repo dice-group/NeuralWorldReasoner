@@ -18,8 +18,8 @@ class NWR(AbstractReasoner):
         """ {x | f(x,type,concept) \ge \gamma} """
         assert isinstance(concept, NC)
         # (1) Compute scores for all entities.
-        scores_for_all = self.predictor.predict(relations=['<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>'],
-                                                tail_entities=[concept.iri])
+        scores_for_all = self.predictor.predict(r=['<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>'],
+                                                t=[concept.iri])
         # (2) Iterative (1) and return entities whose predicted score satisfies the condition.
         raw_results = {self.predictor.idx_to_entity[index] for index, flag in
                        enumerate(scores_for_all >= self.gammas['NC']) if
@@ -72,7 +72,7 @@ class NWR(AbstractReasoner):
         # (2) For each filler individual
         for i in filler_individuals:
             # (2.1) Assign scores for all subjects.
-            scores_for_all = self.predictor.predict(relations=[role], tail_entities=[i])
+            scores_for_all = self.predictor.predict(r=[role], t=[i])
             ids = (scores_for_all >= self.gammas['Exists']).nonzero(as_tuple=True)[0].tolist()
             if len(ids) >= 1:
                 results.update(set(ids))
@@ -90,7 +90,7 @@ class NWR(AbstractReasoner):
             #   (count(?s2) as ?cnt2)
             #   WHERE { ?var r ?s2 }
             #   GROUP By ?var}
-            scores_for_all = self.predictor.predict(head_entities=[i], relations=[role]).flatten()
+            scores_for_all = self.predictor.predict(h=[i], r=[role]).flatten()
             raw_results = {self.predictor.idx_to_entity[index] for index, flag in
                            enumerate(scores_for_all >= self.gammas['Forall']) if flag}
             # Demir hasSibling {......}
@@ -126,7 +126,7 @@ class NWR(AbstractReasoner):
     def value_restriction(self, concept: ValueRestriction):
         results = dict()
         for i in self.predict(concept.filler):
-            scores_for_all = self.predictor.predict(relations=[concept.role_iri], tail_entities=[i])
+            scores_for_all = self.predictor.predict(r=[concept.role_iri], t=[i])
 
             # (2) Iterative (1) and return entities whose predicted score satisfies the condition.
             raw_results = {self.predictor.idx_to_entity[index] for index, flag in

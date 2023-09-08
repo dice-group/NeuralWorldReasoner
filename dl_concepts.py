@@ -89,7 +89,7 @@ class ValueRestriction(AbstractDLConcept):
         self.role = role.split('#')[-1][:-1]
         self.filler = filler
         self.str = self.opt + ' ' + f'{self.val} ' + self.role + '.' + filler.str
-        self.sparql = None
+        # self.sparql = None
 
     @property
     def manchester_str(self):
