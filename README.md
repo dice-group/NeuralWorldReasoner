@@ -1,11 +1,9 @@
 # Neural Description Logic Reasoning over incomplete Knowledge Base
 
-
-
 # Installation
-## Python Dependencies
 ```
-conda create -n nrw python=3.10 --no-default-packages && conda activate nrw
+conda create -n nrw python=3.9 --no-default-packages && conda activate nrw
+pip3 install deeponto==0.8.5
 pip3 install dicee
 ```
 
