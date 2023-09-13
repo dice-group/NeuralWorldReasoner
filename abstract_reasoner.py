@@ -1,15 +1,16 @@
 from abc import ABC, abstractmethod
 from typing import Set
 from dl_concepts import *
+
 class AbstractReasoner(ABC):
     def predict(self, concept) -> Set[str]:
         if isinstance(concept, NC):
             return self.atomic_concept(concept)
         elif isinstance(concept, NNC):
             return self.negated_atomic_concept(concept)
-        elif isinstance(concept, ConjunctionDLConcept):
+        elif isinstance(concept, owlapy.model.OWLObjectIntersectionOf):
             return self.conjunction(concept)
-        elif isinstance(concept, DisjunctionDLConcept):
+        elif isinstance(concept, owlapy.model.OWLObjectUnionOf):
             return self.disjunction(concept)
         elif isinstance(concept, Restriction):
             return self.restriction(concept)

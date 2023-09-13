@@ -5,6 +5,7 @@
 conda create -n nrw python=3.9 --no-default-packages && conda activate nrw
 pip3 install deeponto==0.8.5
 pip3 install dicee
+pip3 install dl2sparql==0.0.1
 ```
 
 ## Installation Triple-store

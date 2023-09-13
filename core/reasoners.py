@@ -4,7 +4,60 @@ from util import jaccard_similarity, compute_prediction, evaluate_results
 from dl_concepts import *
 import dicee
 import requests
+from dl2sparql import DescriptionLogicConcept, SPARQLQuery
 
+class SPARQLCWR(AbstractReasoner):
+    def __init__(self, url, name: str = 'sparqlcwr'):
+        super(SPARQLCWR, self)
+        self.url = url
+        self.name = name
+        self.all_individuals = self.query("PREFIX owl: <http://www.w3.org/2002/07/owl#>\n"
+                                          "SELECT DISTINCT ?var\n"
+                                          "WHERE {?var a owl:NamedIndividual.}")
+
+    def query(self, query: str) -> Set[str]:
+        """
+        Perform a SPARQL query
+        :param query:
+        :return:
+        """
+        response = requests.post(self.url, data={
+            'query': query})
+        # Adding brackets
+        return {'<' + i['var']['value'] + '>' for i in response.json()['results']['bindings']}
+
+    def retrieve(self, concept) -> Set[str]:
+        """
+        perform concept retrieval
+        :param concept:
+        :return:
+        """
+        concept = DescriptionLogicConcept(dl_str=concept.str, namespace=concept.namespace)
+        sparql_query = SPARQLQuery(root_variable="?var",dl_concept=concept)
+        print(sparql_query)
+        return self.query(sparql_query)
+
+    def atomic_concept(self, concept) -> Set[str]:
+        """ {x | f(x,type,concept) \ge \gamma} """
+        return self.retrieve(concept)
+
+    def negated_atomic_concept(self, concept: NNC) -> Set[str]:
+        assert isinstance(concept, NNC)
+        return self.retrieve(concept)
+
+    def conjunction(self, concept) -> Set[str]:
+        """  Conjunction   (⊓) : C ⊓ D  : C^I ⊓ D^I """
+        return self.retrieve(concept)
+
+    def disjunction(self, concept) -> Set[str]:
+        """  Disjunction   (⊔) : C ⊔ D  : C^I ⊔ D^I """
+        return self.retrieve(concept)
+
+    def restriction(self, concept):
+        return self.retrieve(concept)
+
+    def value_restriction(self, concept: ValueRestriction) -> Set[str]:
+        return self.retrieve(concept)
 
 class NWR(AbstractReasoner):
     def __init__(self, predictor: dicee.KGE, gammas=None, all_named_individuals: Set[str] = None):
@@ -162,111 +215,6 @@ class NWR(AbstractReasoner):
 
             print(f"Best Gamma:{best_gamma}\t for {name} Sim:{best_sim}")
             self.gammas[name] = best_gamma
-
-
-class HermiT(AbstractReasoner):
-    def __init__(self, url):
-        super(HermiT, self)
-        self.url = url
-        self.name = 'HermiT'
-
-    def retrieve(self, concept) -> Set[str]:
-        """
-        perform concept retrieval
-        :param concept:
-        :return:
-        """
-        try:
-            return {i for i in
-                    requests.post('http://localhost:8080/hermit', data=concept.manchester_str).json()['individuals']}
-        except requests.exceptions.JSONDecodeError:
-            print('JSON Decoding Error')
-            print(concept.manchester_str)
-            return set()
-
-    def atomic_concept(self, concept: NC) -> Set[str]:
-        """ {x | f(x,type,concept) \ge \gamma} """
-        assert isinstance(concept, NC)
-        return self.retrieve(concept)
-
-    def negated_atomic_concept(self, concept: NNC) -> Set[str]:
-        assert isinstance(concept, NNC)
-        return self.retrieve(concept)
-
-    def conjunction(self, concept) -> Set[str]:
-        """  Conjunction   (⊓) : C ⊓ D  : C^I ⊓ D^I """
-        return self.retrieve(concept)
-
-    def disjunction(self, concept) -> Set[str]:
-        """  Disjunction   (⊔) : C ⊔ D  : C^I ⊔ D^I """
-        return self.retrieve(concept)
-
-    def restriction(self, concept):
-        return self.retrieve(concept)
-
-    def value_restriction(self, concept: ValueRestriction) -> Set[str]:
-        return self.retrieve(concept)
-
-
-class SPARQLCWR(AbstractReasoner):
-    def __init__(self, url, name: str = 'sparqlcwr'):
-        super(SPARQLCWR, self)
-        self.url = url
-        self.name = name
-        self.all_individuals = self.query("PREFIX owl: <http://www.w3.org/2002/07/owl#>\n"
-                                          "SELECT DISTINCT ?var\n"
-                                          "WHERE {?var a owl:NamedIndividual.}")
-
-    def query(self, query: str) -> Set[str]:
-        """
-        Perform a SPARQL query
-        :param query:
-        :return:
-        """
-        response = requests.post(self.url, data={
-            'query': query})
-        # Adding brackets
-        return {'<' + i['var']['value'] + '>' for i in response.json()['results']['bindings']}
-
-    def retrieve(self, concept) -> Set[str]:
-        """
-        perform concept retrieval
-        :param concept:
-        :return:
-        """
-        if isinstance(concept, Restriction) and concept.opt == '∀':
-            # A concept retrieval for ∀ r.C is performed by \neg \∃ r. ∃C
-            # given '∀' r.C, convert it into \neg r. \neg C
-            sparql_query = converter.as_query("?var", parser.parse_expression(
-                Restriction(opt="∃", role=concept.role_iri, filler=concept.filler.neg()).str), False)
-            return self.all_individuals.difference(self.query(sparql_query))
-        else:
-            sparql_query = converter.as_query("?var", parser.parse_expression(concept.str), False)
-            return self.query(sparql_query)
-
-    def atomic_concept(self, concept: NC) -> Set[str]:
-        """ {x | f(x,type,concept) \ge \gamma} """
-        assert isinstance(concept, NC)
-        return self.retrieve(concept)
-
-    def negated_atomic_concept(self, concept: NNC) -> Set[str]:
-        assert isinstance(concept, NNC)
-        return self.retrieve(concept)
-
-    def conjunction(self, concept) -> Set[str]:
-        """  Conjunction   (⊓) : C ⊓ D  : C^I ⊓ D^I """
-        return self.retrieve(concept)
-
-    def disjunction(self, concept) -> Set[str]:
-        """  Disjunction   (⊔) : C ⊔ D  : C^I ⊔ D^I """
-        return self.retrieve(concept)
-
-    def restriction(self, concept):
-        return self.retrieve(concept)
-
-    def value_restriction(self, concept: ValueRestriction) -> Set[str]:
-        return self.retrieve(concept)
-
 
 class CWR(AbstractReasoner):
     """ Closed World Assumption"""

@@ -1,13 +1,5 @@
 from abc import ABC
 
-from owlapy.parser import DLSyntaxParser
-from owlapy.owl2sparql.converter import Owl2SparqlConverter
-
-parser = DLSyntaxParser("http://www.benchmark.org/family#")
-converter = Owl2SparqlConverter()
-
-
-# print(converter.as_query("?var", parser.parse_expression('≥ 2 hasChild.Mother'), False))
 
 class AbstractDLConcept(ABC):
     pass
@@ -180,11 +172,13 @@ class DisjunctionDLConcept(AbstractDLConcept):
 
 
 class NC(AbstractDLConcept):
-    def __init__(self, iri):
+    def __init__(self, iri: str):
         super(NC, self)
+        assert isinstance(iri, str) and "#" in iri
         self.iri = iri
         assert self.iri[0] == '<' and self.iri[-1] == '>'
         self.str = self.iri.split('#')[-1][:-1]
+        self.namespace=self.iri.split('#')[0][1:]+"#"
         self.length = 1
 
     @property
@@ -208,6 +202,8 @@ class NNC(AbstractDLConcept):
         self.neg_iri = iri
         self.str = "¬" + iri.split('#')[-1][:-1]
         self.length = 2
+        self.namespace=iri.split('#')[0][1:]+"#"
+
 
     @property
     def manchester_str(self):
