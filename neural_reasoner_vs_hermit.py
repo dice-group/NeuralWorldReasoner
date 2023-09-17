@@ -25,7 +25,7 @@ import torch
 # JVM started successfully.
 
 path_ontology = "KGs/Family/Family.owl"
-load_path = "Experiments/2023-09-13 13-32-07.339797"
+load_path = "Experiments/2023-09-07 11-25-46.731312"
 
 def train_kge(path):
     # (1) Train Clifford Embeddings model with AllvsAll on Family dataset
@@ -58,19 +58,65 @@ for k, v in pre_trained_kge.relation_to_idx.items():
 for k, v in pre_trained_kge.entity_to_idx.items():
     f[str(k)] = k
 
+
+
+# get the ontology
 onto = Ontology(path_ontology)
 # A Threshold
 gamma = 0.95
-# Iterate over named concepts
-# @TODO: Generate complex concepts, e.g. Union, Intersection, Existential ∃ and Universal Quantifiers ∀
-#
-complex_classes= [j for j in onto.get_asserted_complex_classes()]
+
+# Iterate over complex class expressions
+# @TODO: Generate complex class expressions, e.g. Union, Intersection, Existential ∃ and Universal Quantifiers ∀
+
+
+# try to create a union class expression
+unions = []
+for i in onto.owl_classes:
+    owl_object_a = onto.get_owl_object_from_iri(i)
+    for j in onto.owl_classes:
+      owl_object_b = onto.get_owl_object_from_iri(j)
+      tmp_unionClassExpression  = onto.owl_data_factory.getOWLObjectUnionOf(owl_object_a,owl_object_b)
+      unions.append(tmp_unionClassExpression)
+
+# testing
+for i in unions:
+  tmp = i.asDisjunctSet()
+  print(tmp)
+  
+# try to create a intersection class expression
+intersections = []
+for i in onto.owl_classes:
+    owl_object_a = onto.get_owl_object_from_iri(i)
+    for j in onto.owl_classes:
+      owl_object_b = onto.get_owl_object_from_iri(j)
+      tmp_unionClassExpression  = onto.owl_data_factory.getOWLObjectIntersectionOf(owl_object_a,owl_object_b)
+      intersections.append(tmp_unionClassExpression)
+
+# testing
+for i in unions:
+  tmp = i.asConjunctSet()
+  print(tmp)
+
+existential_res = []
+for p in onto.owl_object_properties:
+  for i in onto.owl_classes:
+    owl_object = onto.get_owl_object_from_iri(i)
+    owl_property = onto.get_owl_object_from_iri(p)
+    # owl_property = onto.owl_data_factory.getOWLObjectProperty(p)
+    tmp_existential_class = onto.owl_data_factory.getOWLObjectSomeValuesFrom(owl_property,owl_object)
+    existential_res.append(tmp_existential_class)
+
+for i in existential_res:
+  print(i.getClassExpressionType())
+
+
 
 for i in onto.owl_classes:
     i: str  # IRI
     # (1) owlapi OBJECT owl_object: <java class 'uk.ac.manchester.cs.owl.owlapi.OWLClassImpl'>
     owl_object = onto.get_owl_object_from_iri(i)
-    print(owl_object)
+    # print(owl_object)
+    # unionClassExpression  = onto.owl_data_factory.getOWLObjectUnionOf(owl_object,owl_object)
     # (2) Return instanced/a set of individuals belonging owl_object: str(i)[1:-1] => removed brackets *< ... >
     y: Set[str]
     y = {str(i)[1:-1] for i in onto.reasoner.instances_of(owl_object)}

@@ -22,7 +22,7 @@ pd.pandas.set_option('display.max_columns', None)
 
 # (1) Load the model
 path_ontology = "KGs/Family/Family.owl"
-load_path = "Experiments/2023-09-13 16-11-14.546343"
+load_path = "Experiments/2023-09-07 11-25-46.731312"
 def train_kge(path):
     # (1) Train Clifford Embeddings model with AllvsAll on Family dataset
     args = Namespace()
@@ -104,16 +104,16 @@ for (name, i) in [('N_C', all_named_concepts),
                   ]:
     print(f'{name} starts {len(i)}')
     y=compute_prediction(i, predictor=swr)
-    print(y)
-    continue
+    # print(y)
+    
     df = evaluate_results(true_results=compute_prediction(i, predictor=swr),
                           predictions=compute_prediction(i, predictor=neural_reasoner))
     print('######')
     print(name)
     if len(df)>0:
         # print(df)
-        # print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
-        print(df[['Similarity', 'ConceptSize', 'RTHermiT', 'RTnwr']].mean())
+        print(df[['Similarity', 'ConceptSize', 'RTFuseki', 'RTnwr']].mean())
+        # print(df[['Similarity', 'ConceptSize', 'RTHermiT', 'RTnwr']].mean())
         # print(df[['Similarity', 'ConceptSize', 'RTHermiT', 'RTFuseki']].mean())
         print(df.to_latex(index=False, float_format="%.3f"))
     else:

@@ -34,7 +34,7 @@ class SPARQLCWR(AbstractReasoner):
         """
         concept = DescriptionLogicConcept(dl_str=concept.str, namespace=concept.namespace)
         sparql_query = SPARQLQuery(root_variable="?var",dl_concept=concept)
-        print(sparql_query)
+        # print(sparql_query)
         return self.query(sparql_query)
 
     def atomic_concept(self, concept) -> Set[str]:
