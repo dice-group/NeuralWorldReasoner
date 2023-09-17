@@ -6,7 +6,7 @@ Our Approach: A neural link predictor
 """
 
 from dicee import KGE
-from reasoners import HermiT, NWR, SPARQLCWR, NC, Restriction, ValueRestriction
+from core.reasoners import HermiT, NWR, SPARQLCWR, NC, Restriction, ValueRestriction
 from util import compute_prediction, evaluate_results
 import time
 from dicee import KGE
@@ -17,7 +17,7 @@ pd.set_option("display.precision", 4)
 pd.pandas.set_option('display.max_columns', None)
 
 # (1) Load the model
-pretrained_model = KGE("Experiments/2023-05-24 11:53:06.006435")
+pretrained_model = KGE("Experiments/2023-09-07 11-25-46.731312")
 # (2) Build a SPARQL connection.
 swr = SPARQLCWR(url='http://localhost:3030/family/sparql', name='Fuseki')
 hermit = HermiT(url='http://localhost:8080/hermit')

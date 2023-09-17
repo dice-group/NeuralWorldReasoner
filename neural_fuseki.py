@@ -6,7 +6,7 @@ Baseline: A triple store Fuseki retrieves instances of a description logic conce
 Our Approach: A neural link predictor
 """
 from dicee import KGE
-from reasoners import NWR, SPARQLCWR, NC, Restriction, ValueRestriction
+from core.reasoners import NWR, SPARQLCWR, NC, Restriction, ValueRestriction
 from util import compute_prediction, evaluate_results
 import time
 from dicee import KGE
@@ -66,7 +66,7 @@ neural_kb = NWR(predictor=pretrained_model, gammas={'NC': 0.1, 'Exists': 0.7, 'F
 for i in all_named_concepts:
     if 'Child'==i.str:
         y=neural_kb.predict(concept=i)
-        print(len(y))
+        # print(len(y))
         
 
 

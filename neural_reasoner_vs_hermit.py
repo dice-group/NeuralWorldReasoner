@@ -1,3 +1,12 @@
+from deeponto import init_jvm
+
+try:
+  MAX_JVM_MEMORY = "8g"
+  init_jvm(MAX_JVM_MEMORY)
+  
+except Exception as e:
+  print("cannot init jvm. ", e)
+
 import rdflib.term
 from dicee.executer import Execute
 from dicee.config import Namespace

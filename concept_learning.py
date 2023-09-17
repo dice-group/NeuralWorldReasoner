@@ -26,7 +26,7 @@ print(x.str)
 
 sparql_query = converter.as_query("?var", parser.parse_expression(x.str), False)
 
-print(sparql_query)
+# print(sparql_query)
 exit(1)
 
 print('#####')

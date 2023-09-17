@@ -8,9 +8,11 @@ class AbstractReasoner(ABC):
             return self.atomic_concept(concept)
         elif isinstance(concept, NNC):
             return self.negated_atomic_concept(concept)
-        elif isinstance(concept, owlapy.model.OWLObjectIntersectionOf):
+        # elif isinstance(concept, owlapy.model.OWLObjectIntersectionOf):
+        elif isinstance(concept, ConjunctionDLConcept):
             return self.conjunction(concept)
-        elif isinstance(concept, owlapy.model.OWLObjectUnionOf):
+        # elif isinstance(concept, owlapy.model.OWLObjectUnionOf):
+        elif isinstance(concept, DisjunctionDLConcept):
             return self.disjunction(concept)
         elif isinstance(concept, Restriction):
             return self.restriction(concept)

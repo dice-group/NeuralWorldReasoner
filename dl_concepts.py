@@ -30,6 +30,7 @@ class Restriction(AbstractDLConcept):
             self.str = self.opt + ' ' + self.role + '.' + '(' + filler.str + ')'
 
         self.length = filler.length + 2
+        self.namespace = filler.namespace
 
     @property
     def manchester_str(self):
@@ -82,6 +83,7 @@ class ValueRestriction(AbstractDLConcept):
         self.filler = filler
         self.str = self.opt + ' ' + f'{self.val} ' + self.role + '.' + filler.str
         # self.sparql = None
+        self.namespace = filler.namespace
 
     @property
     def manchester_str(self):
@@ -108,6 +110,7 @@ class ConjunctionDLConcept(AbstractDLConcept):
         self.left = concept_a
         self.right = concept_b
         self.length = concept_a.length + concept_b.length + 1
+        self.namespace=concept_a.namespace
 
     @property
     def manchester_str(self):
@@ -148,6 +151,7 @@ class DisjunctionDLConcept(AbstractDLConcept):
         self.left = concept_a
         self.right = concept_b
         self.length = concept_a.length + concept_b.length + 1
+        self.namespace=concept_a.namespace
 
     @property
     def manchester_str(self):
