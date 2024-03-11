@@ -2,12 +2,12 @@ from typing import Set
 import pandas as pd
 import time
 
+
 def f1_score(yhat, pos, neg):
     tp= len(yhat.intersection(pos))
     fp=len(yhat.intersection(neg))
     fn=len(pos.difference(yhat))
     return tp/(tp + 0.5*(fp + fn ))
-
 
 
 def jaccard_similarity(y: Set[str], yhat: Set[str]) -> float:
@@ -30,7 +30,7 @@ def compute_prediction(concepts: list, predictor) -> list[dict]:
         start_time = time.time()
         y = predictor.predict(concept=c)
         runtime = time.time() - start_time
-        res.append({'Concept': c, 'Individuals': y, f'RT': runtime, 'Name': predictor.name})
+        res.append({'Concept': c.str, 'Individuals': y, f'RT': runtime, 'Name': predictor.name})
     return res
 
 

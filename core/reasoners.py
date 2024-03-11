@@ -1,19 +1,21 @@
 from abstract_reasoner import AbstractReasoner
 from typing import Set
-from util import jaccard_similarity, compute_prediction, evaluate_results
+from util import compute_prediction, evaluate_results
 from dl_concepts import *
 import dicee
 import requests
 from dl2sparql import DescriptionLogicConcept, SPARQLQuery
 
+
 class SPARQLCWR(AbstractReasoner):
-    def __init__(self, url, name: str = 'sparqlcwr'):
+    def __init__(self, url, namespace: str, name: str = 'sparqlcwr', ):
         super(SPARQLCWR, self)
         self.url = url
         self.name = name
         self.all_individuals = self.query("PREFIX owl: <http://www.w3.org/2002/07/owl#>\n"
                                           "SELECT DISTINCT ?var\n"
                                           "WHERE {?var a owl:NamedIndividual.}")
+        self.ns = namespace
 
     def query(self, query: str) -> Set[str]:
         """
@@ -30,10 +32,11 @@ class SPARQLCWR(AbstractReasoner):
         """
         perform concept retrieval
         :param concept:
+        :param namespace:
         :return:
         """
-        concept = DescriptionLogicConcept(dl_str=concept.str, namespace=concept.namespace)
-        sparql_query = SPARQLQuery(root_variable="?var",dl_concept=concept)
+        concept = DescriptionLogicConcept(dl_str=concept.str, namespace=self.ns)
+        sparql_query = SPARQLQuery(root_variable="?var", dl_concept=concept)
         print(sparql_query)
         return self.query(sparql_query)
 
@@ -59,7 +62,13 @@ class SPARQLCWR(AbstractReasoner):
     def value_restriction(self, concept: ValueRestriction) -> Set[str]:
         return self.retrieve(concept)
 
+    def retrieve_from_dl_concept(self, concept):
+        return self.retrieve(concept)
+
 class NWR(AbstractReasoner):
+    def retrieve_from_dl_concept(self, concept):
+        raise NotImplementedError()
+
     def __init__(self, predictor: dicee.KGE, gammas=None, all_named_individuals: Set[str] = None):
         super(NWR, self)
         self.predictor = predictor
@@ -218,6 +227,9 @@ class NWR(AbstractReasoner):
 
 class CWR(AbstractReasoner):
     """ Closed World Assumption"""
+
+    def retrieve_from_dl_concept(self, concept):
+        pass
 
     def __init__(self, database, all_named_individuals):
         super(CWR, self)

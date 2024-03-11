@@ -1,11 +1,16 @@
 from abc import ABC
 
+from dl2sparql.owl2sparql.converter import Owl2SparqlConverter
+from dl2sparql.parser import DLSyntaxParser
+
 
 class AbstractDLConcept(ABC):
     pass
 
     @property
     def sparql(self):
+        parser = DLSyntaxParser("http://www.benchmark.org/family#")
+        converter = Owl2SparqlConverter()
         try:
             return converter.as_query("?var", parser.parse_expression(self.str), False)
         except KeyError:
